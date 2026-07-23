@@ -1,24 +1,20 @@
 // state.rs — Application state machine.
 //
-// The state machine has four states:
-//   Idle          — app is running, not dictating
-//   Listening     — mic is open, ASR session active, audio flowing
-//   Transcribing  — audio ended, waiting for final transcript flush
-//   Error(String) — something went wrong; message is user-facing
+// State machine (ARCHITECTURE.md §2):
+//   Idle         → not recording
+//   Listening    → mic open, audio flowing into buffer
+//   Transcribing → mic closed, engine running inference
+//   Error        → something went wrong; message is user-facing
 //
-// State is stored in Arc<Mutex<AppState>> so it can be shared across
-// async Tauri commands and the hotkey callback without data races.
-//
-// WHY Arc<Mutex<>> and not Arc<RwLock<>>:
-//   Writes (state transitions) are infrequent; lock contention is negligible.
-//   Mutex is simpler and its poisoning behaviour is easier to reason about.
+// SharedState = Arc<Mutex<AppState>> — shared between Tauri commands and hotkey handler.
 
-use crate::engine::SessionId;
+use crate::engine::{PlatformEngine, SessionId};
+use crate::mic::CaptureHandle;
+use crate::settings::{self, Settings};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
-/// The four states of the dictation state machine.
-/// Serialisable so it can be sent to the webview via Tauri events.
+/// The four states.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "status", content = "message")]
 pub enum Status {
@@ -28,23 +24,41 @@ pub enum Status {
     Error(String),
 }
 
-/// Full runtime state, held behind Arc<Mutex<>>.
+/// Full runtime state.
 pub struct AppState {
-    pub status:     Status,
-    /// Active ASR session ID, if any.
+    pub status: Status,
+
+    /// Active ASR session ID (set by start_dictation, cleared by stop_dictation).
     pub session_id: Option<SessionId>,
+
+    /// Raw f32 PCM accumulates here while the mic is open.
+    /// Shared with the cpal audio callback via Arc<Mutex<>>.
+    pub audio_buffer: Arc<Mutex<Vec<f32>>>,
+
+    /// Owns the cpal stream. Dropping it stops the microphone.
+    pub capture_handle: Option<CaptureHandle>,
+
+    /// Initialised lazily on first dictation.
+    pub engine: Option<Arc<PlatformEngine>>,
+
+    /// Current user settings (loaded from disk at startup, updated by set_settings).
+    pub settings: Settings,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
-            status:     Status::Idle,
-            session_id: None,
+            status:         Status::Idle,
+            session_id:     None,
+            audio_buffer:   Arc::new(Mutex::new(Vec::with_capacity(16_000 * 60))),
+            capture_handle: None,
+            engine:         None,
+            settings:       settings::load(),
         }
     }
 }
 
-/// Convenience type alias — this is what gets stored in Tauri's managed state.
+/// The type stored in Tauri's managed state.
 pub type SharedState = Arc<Mutex<AppState>>;
 
 pub fn new_shared_state() -> SharedState {

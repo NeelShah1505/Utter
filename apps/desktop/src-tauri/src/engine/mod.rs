@@ -1,30 +1,26 @@
 // engine/mod.rs — ASR Engine trait and runtime selector.
 //
-// The AsrEngine trait is the contract every ASR backend must satisfy.
-// It is defined exactly as in ARCHITECTURE.md §4.
+// Platform dispatch (compile-time):
+//   aarch64-apple-darwin  → MacOsSpeechEngine (SFSpeechRecognizer via CoreML/ANE)
+//   x86_64-apple-darwin   → MacOsSpeechEngine (SFSpeechRecognizer, no ANE but offline)
+//   Windows / Linux       → WhisperCppEngine  (whisper.cpp — Phase 3)
 //
-// Compile-time engine selection:
-//   - aarch64-apple-darwin → AppleSiliconEngine (FluidAudio + Parakeet TDT v3)
-//   - everything else      → WhisperCppEngine
-//
-// WHY compile-time and not runtime selection:
-//   The two engines have different native library dependencies. Shipping both
-//   in one binary would double the install size. The target triple already encodes
-//   the hardware, so compile-time selection is correct and produces the smallest binary.
+// The macOS engines share the same Swift helper (utter-transcribe).
+// On Apple Silicon the helper uses the ANE automatically.
 
 pub mod apple_silicon;
+pub mod macos_speech;
 pub mod whisper_cpp;
 
 use crate::error::AppError;
 
-/// Opaque session handle returned by `start_session`.
-/// u64 is sufficient for a per-process monotonic counter.
+/// Opaque session handle. u64 is sufficient for a per-process monotonic counter.
 pub type SessionId = u64;
 
 /// Configuration passed to `AsrEngine::init`.
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
-    /// Path to the model file. If empty, the engine uses its bundled default.
+    /// Path to the model file. Empty = use platform default.
     pub model_path: String,
 }
 
@@ -50,10 +46,10 @@ pub enum EngineError {
 impl From<EngineError> for AppError {
     fn from(e: EngineError) -> Self {
         match e {
-            EngineError::ModelLoad(m)    => AppError::ModelLoad(m),
-            EngineError::ModelNotFound(m)=> AppError::ModelNotFound(m),
-            EngineError::NotImplemented(m)=>AppError::Internal(format!("not implemented: {m}")),
-            other                        => AppError::Internal(other.to_string()),
+            EngineError::ModelLoad(m)     => AppError::ModelLoad(m),
+            EngineError::ModelNotFound(m) => AppError::ModelNotFound(m),
+            EngineError::NotImplemented(m)=> AppError::Internal(format!("not implemented: {m}")),
+            other                         => AppError::Internal(other.to_string()),
         }
     }
 }
@@ -61,8 +57,7 @@ impl From<EngineError> for AppError {
 /// The core ASR engine contract.
 /// All implementations must be Send + Sync — they are held behind Arc<dyn AsrEngine>.
 pub trait AsrEngine: Send + Sync {
-    /// Called once at startup. Loads the model into memory.
-    /// Must be called before any other method.
+    /// Called once at startup. Loads the model into memory (or verifies helper exists).
     fn init(config: &EngineConfig) -> Result<Self, EngineError>
     where
         Self: Sized;
@@ -71,24 +66,23 @@ pub trait AsrEngine: Send + Sync {
     fn start_session(&self) -> Result<SessionId, EngineError>;
 
     /// Feed a chunk of PCM audio (16 kHz, mono, f32).
-    /// Called approximately 10 times per second by the mic capture loop.
     fn feed_audio(&self, session: SessionId, samples: &[f32]) -> Result<(), EngineError>;
 
-    /// Poll for any new partial transcript text. Non-blocking.
-    /// Returns None if no new text is ready.
+    /// Poll for a new partial transcript. Non-blocking. Returns None if not ready.
     fn poll_partial(&self, session: SessionId) -> Result<Option<String>, EngineError>;
 
     /// End the session and flush the final transcript.
-    /// Blocks until the engine has finished processing all buffered audio.
     fn end_session(&self, session: SessionId) -> Result<String, EngineError>;
 }
 
-/// The concrete engine type used on this platform (selected at compile time).
-///
-/// On aarch64-apple-darwin: AppleSiliconEngine
-/// Everywhere else:         WhisperCppEngine
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-pub type PlatformEngine = apple_silicon::AppleSiliconEngine;
+// ---------------------------------------------------------------------------
+// Compile-time platform selection
+// ---------------------------------------------------------------------------
 
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+/// The concrete engine used on macOS (both arm64 and x86_64).
+#[cfg(target_os = "macos")]
+pub type PlatformEngine = macos_speech::MacOsSpeechEngine;
+
+/// The concrete engine used on Windows/Linux (Phase 3 — currently stubs).
+#[cfg(not(target_os = "macos"))]
 pub type PlatformEngine = whisper_cpp::WhisperCppEngine;

@@ -38,25 +38,18 @@ dirs = "6"
 
 # Audio capture
 cpal = "0.15"
+# cpal's CoreAudio Stream is !Send, so we wrap it in SendWrapper to store in Tauri state
+send_wrapper = "0.6"
+
+# Text insertion — cross-platform synthetic input (macOS CGEvent, Windows SendInput)
+enigo = "0.3"
 
 # Error handling
 thiserror = "2"
 anyhow = "1"
 async-trait = "0.1"
 
-[target.'cfg(target_os = "macos")'.dependencies]
-# macOS-specific: used for text insertion via accessibility API
-# core-foundation and objc are indirect deps via tauri; we reference them directly
-# for the CoreGraphics CGEvent synthetic input path.
-# Actual bindings written in Phase 2 — these are declared now so they resolve.
-core-foundation = "0.10"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-# Windows-specific: used for SendInput text insertion
-windows = { version = "0.58", features = [
-    "Win32_UI_Input_KeyboardAndMouse",
-    "Win32_Foundation",
-] }
+# enigo handles macOS (CGEvent) and Windows (SendInput) internally — no manual platform deps needed.
 
 [profile.dev]
 incremental = true

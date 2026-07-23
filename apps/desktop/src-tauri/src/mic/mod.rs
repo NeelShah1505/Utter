@@ -13,6 +13,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, SampleFormat, SupportedStreamConfig,
 };
+use send_wrapper::SendWrapper;
 
 /// Target sample rate for all ASR engines.
 pub const TARGET_SAMPLE_RATE: u32 = 16_000;
@@ -78,9 +79,13 @@ pub fn preferred_config(device: &Device) -> Result<SupportedStreamConfig> {
 
 /// Capture state — holds the active cpal stream.
 /// Dropping this struct stops the capture immediately.
+/// SendWrapper allows us to hold the !Send cpal::Stream in Tauri's managed state.
 pub struct CaptureHandle {
-    // cpal streams are stopped by dropping them.
-    _stream: cpal::Stream,
+    // SAFETY: cpal streams on macOS (CoreAudio) are !Send because they hold a
+    // raw CoreAudio reference. We only ever access the stream from the main
+    // Rust thread (create in start_dictation, drop in stop_dictation — both
+    // called sequentially). SendWrapper enforces this at runtime.
+    _stream: SendWrapper<cpal::Stream>,
 }
 
 impl CaptureHandle {
@@ -141,6 +146,6 @@ impl CaptureHandle {
             sample_format,
         );
 
-        Ok(Self { _stream: stream })
+        Ok(Self { _stream: SendWrapper::new(stream) })
     }
 }
