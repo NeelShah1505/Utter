@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Utter Settings</title>
+  <link rel="stylesheet" href="assets/settings.css">
+</head>
+<body>
+
+  <header class="settings-header">
+    <h1>Utter Settings</h1>
+    <p class="version" id="app-version"></p>
+  </header>
+
+  <main class="settings-main">
+
+    <!-- === Hotkey === -->
+    <section class="settings-section" aria-labelledby="sect-hotkey">
+      <h2 id="sect-hotkey">Hotkey</h2>
+      <div class="field-row">
+        <label for="hotkey-input">Global dictation hotkey</label>
+        <input
+          type="text"
+          id="hotkey-input"
+          placeholder="CmdOrCtrl+Shift+D"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+      <p class="field-hint">
+        Click the field and press your desired key combination. Changes take effect immediately.
+      </p>
+    </section>
+
+    <!-- === Audio Input === -->
+    <section class="settings-section" aria-labelledby="sect-audio">
+      <h2 id="sect-audio">Microphone</h2>
+      <div class="field-row">
+        <label for="audio-device-select">Input device</label>
+        <select id="audio-device-select">
+          <option value="">System default</option>
+          <!-- Populated by JS -->
+        </select>
+      </div>
+    </section>
+
+    <!-- === Model === -->
+    <section class="settings-section" aria-labelledby="sect-model">
+      <h2 id="sect-model">ASR Model</h2>
+      <div class="field-row">
+        <label for="model-select">Model file</label>
+        <select id="model-select">
+          <option value="">Bundled default</option>
+          <!-- Populated by JS -->
+        </select>
+      </div>
+      <p class="field-hint">
+        Place <code>.gguf</code> or <code>.bin</code> model files in
+        <code id="models-dir-path">~/Library/Application Support/Utter/models/</code>
+      </p>
+    </section>
+
+    <!-- === Cleanup Backend === -->
+    <section class="settings-section" aria-labelledby="sect-cleanup">
+      <h2 id="sect-cleanup">AI Cleanup <span class="badge-optional">Optional</span></h2>
+      <p class="section-desc">
+        After transcription, optionally route the text through an AI model to fix
+        grammar and remove filler words. Off by default. Your transcript is sent
+        only to the endpoint you configure here.
+      </p>
+
+      <div class="field-row">
+        <label for="cleanup-type">Backend</label>
+        <select id="cleanup-type">
+          <option value="None">None (default)</option>
+          <option value="LocalOllama">Local Ollama</option>
+          <option value="RemoteOllama">Remote Ollama</option>
+          <option value="OpenAiCompat">OpenAI-compatible API</option>
+        </select>
+      </div>
+
+      <!-- LocalOllama fields -->
+      <div class="cleanup-fields" id="fields-LocalOllama" hidden>
+        <div class="field-row">
+          <label for="ollama-local-url">Ollama URL</label>
+          <input type="url" id="ollama-local-url" placeholder="http://localhost:11434" value="http://localhost:11434">
+        </div>
+        <div class="field-row">
+          <label for="ollama-local-model">Model</label>
+          <input type="text" id="ollama-local-model" placeholder="llama3">
+        </div>
+      </div>
+
+      <!-- RemoteOllama fields -->
+      <div class="cleanup-fields" id="fields-RemoteOllama" hidden>
+        <div class="field-row">
+          <label for="ollama-remote-url">Ollama URL</label>
+          <input type="url" id="ollama-remote-url" placeholder="https://your-server.example.com">
+        </div>
+        <div class="field-row">
+          <label for="ollama-remote-model">Model</label>
+          <input type="text" id="ollama-remote-model" placeholder="llama3">
+        </div>
+        <div class="field-row">
+          <label for="ollama-remote-token">Bearer token</label>
+          <input type="password" id="ollama-remote-token" placeholder="Stored in OS keychain — leave blank to keep existing">
+          <p class="field-hint">Stored in your OS keychain. Never written to disk.</p>
+        </div>
+      </div>
+
+      <!-- OpenAiCompat fields -->
+      <div class="cleanup-fields" id="fields-OpenAiCompat" hidden>
+        <div class="field-row">
+          <label for="oai-url">API endpoint</label>
+          <input type="url" id="oai-url" placeholder="https://api.openai.com">
+        </div>
+        <div class="field-row">
+          <label for="oai-model">Model</label>
+          <input type="text" id="oai-model" placeholder="gpt-4o-mini">
+        </div>
+        <div class="field-row">
+          <label for="oai-key">API key</label>
+          <input type="password" id="oai-key" placeholder="sk-… (stored in OS keychain)">
+          <p class="field-hint">Stored in your OS keychain. Never written to disk.</p>
+        </div>
+      </div>
+
+      <!-- Test button -->
+      <div class="cleanup-test-row" id="cleanup-test-row" hidden>
+        <button type="button" id="cleanup-test-btn">Test connection</button>
+        <span class="test-result" id="cleanup-test-result"></span>
+      </div>
+    </section>
+
+    <!-- === About === -->
+    <section class="settings-section" aria-labelledby="sect-about">
+      <h2 id="sect-about">About</h2>
+      <dl class="about-list">
+        <dt>Version</dt>    <dd id="about-version">—</dd>
+        <dt>License</dt>    <dd>MIT</dd>
+        <dt>Source</dt>     <dd><a href="https://github.com/NeelShah1505/Utter" id="source-link" target="_blank" rel="noopener">github.com/NeelShah1505/Utter</a></dd>
+        <dt>Privacy</dt>    <dd>No telemetry. No crash reporting. No network calls (unless you enable cleanup).</dd>
+      </dl>
+    </section>
+
+  </main>
+
+  <!-- Save / Cancel toolbar -->
+  <footer class="settings-footer">
+    <button type="button" id="save-btn" class="btn-primary">Save</button>
+    <button type="button" id="cancel-btn" class="btn-secondary">Cancel</button>
+    <span class="save-status" id="save-status" aria-live="polite"></span>
+  </footer>
+
+  <script type="module" src="assets/settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  entitlements.plist — macOS sandbox entitlements for Utter.
+
+  WHY each entitlement:
+    - microphone: capture audio for ASR (requested at runtime, first dictation)
+    - input-monitoring: detect global hotkey via IOKit without conflicting with other apps
+    - accessibility: insert transcribed text via CGEvent synthetic input
+-->
+<plist version="1.0">
+<dict>
+  <!-- Microphone access for ASR -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <!-- Accessibility (text insertion) -->
+  <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+  <array>
+    <string>com.apple.accessibility.AXBackBoardServer</string>
+  </array>
+</dict>
+</plist>

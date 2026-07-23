@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Utter</title>
+  <link rel="stylesheet" href="assets/bubble.css">
+</head>
+<body>
+
+  <!--
+    Transcript bubble — the only thing shown in the main window.
+    The window is small (400×600), always-on-top, positioned near the cursor.
+    It shows the live partial transcript while the user is speaking, then
+    the final transcript before it inserts and disappears.
+
+    States drive CSS classes on <body>:
+      .state-idle          → bubble hidden, status dot grey
+      .state-listening     → bubble shown, mic active indicator pulsing
+      .state-transcribing  → bubble shown, spinner, no mic indicator
+      .state-error         → bubble shown with error message
+  -->
+
+  <div class="bubble" id="bubble" role="status" aria-live="polite" aria-atomic="false">
+    <div class="bubble__status" id="status-bar">
+      <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+      <span class="status-label" id="status-label">Ready</span>
+    </div>
+
+    <p class="bubble__text" id="transcript-text">
+      <!-- Partial transcript text appears here while listening -->
+    </p>
+
+    <p class="bubble__hint" id="hint-text">
+      Press <kbd>⌘⇧D</kbd> to start · press again to stop
+    </p>
+
+    <div class="bubble__error" id="error-box" hidden>
+      <p id="error-message"></p>
+      <button id="error-dismiss" type="button">Dismiss</button>
+    </div>
+  </div>
+
+  <script type="module" src="assets/bubble.js"></script>
+</body>
+</html>

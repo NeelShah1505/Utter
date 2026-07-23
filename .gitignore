@@ -5,3 +5,4 @@ refer.txt
 node_modules/
 lighthouse-report.html
 lh.json
+target/
