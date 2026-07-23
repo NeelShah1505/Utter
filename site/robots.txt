@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://<org>.github.io/<repo>/sitemap.xml
+# TODO: Update domain and sitemap URL once Q-001 (CONTEXT.md) is resolved.

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Title and meta -->
+  <title>Utter — Type with your voice. Offline.</title>
+  <meta name="description" content="Open-source voice dictation for macOS and Windows. Works completely offline — no account, no API key, no telemetry. Press a hotkey and speak.">
+
+  <!-- Open Graph -->
+  <meta property="og:title"       content="Utter — Type with your voice. Offline.">
+  <meta property="og:description" content="Open-source voice dictation for macOS and Windows. Works completely offline — no account, no API key, no telemetry.">
+  <meta property="og:type"        content="website">
+  <!-- TODO: Update og:url and og:image once Q-001 is resolved and the site is deployed -->
+
+  <!-- Theme color (teal accent, dark-mode aware) -->
+  <meta name="theme-color" content="#0E6B6B" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0D2B2B" media="(prefers-color-scheme: dark)">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <!-- Styles — single file, no CDN, no external resources -->
+  <link rel="stylesheet" href="assets/styles.css">
+
+  <!--
+    JS: detect.js, releases.js, ui.js loaded as ES modules.
+    type="module" defers automatically, so no explicit defer attribute needed.
+    This also means <noscript> covers browsers with JS disabled OR where modules fail.
+  -->
+</head>
+<body>
+
+  <!-- Skip navigation link for keyboard/screen reader users -->
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- ===================================================================
+       Site Header
+       =================================================================== -->
+  <header class="site-header" role="banner">
+    <div class="container">
+      <a class="site-logo" href="/" aria-label="Utter — home">
+        <!-- Inline microphone SVG — no external resource -->
+        <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.15"/>
+          <rect x="13" y="7" width="6" height="12" rx="3" fill="currentColor"/>
+          <path d="M8 17a8 8 0 0 0 16 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <line x1="16" y1="25" x2="16" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="12" y1="28" x2="20" y2="28" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Utter
+      </a>
+
+      <nav class="site-nav" aria-label="Site navigation">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#requirements">Requirements</a>
+        <a href="https://github.com/NeelShah1505/Utter" rel="noopener noreferrer">GitHub</a>
+        <!-- TODO: Replace NeelShah1505/Utter with real value once Q-001 is resolved -->
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===================================================================
+       Main content
+       =================================================================== -->
+  <main id="main">
+
+    <!-- =================================================================
+         1. Hero
+         ================================================================= -->
+    <section class="hero" aria-labelledby="hero-heading">
+      <div class="container container--prose">
+        <p class="hero__eyebrow">Open source · MIT License</p>
+
+        <h1 class="hero__heading" id="hero-heading">
+          Type with your voice.<br>Everywhere. Offline.
+        </h1>
+
+        <p class="hero__subhead">
+          Voice dictation for macOS and Windows. Press a hotkey, speak, and your
+          words appear in any app — with no account, no network, and no telemetry.
+        </p>
+
+        <!--
+          Primary download button.
+          href and text are populated by ui.js based on detected OS/arch.
+          aria-disabled="true" is set initially; ui.js removes it when ready.
+          The noscript block below is shown when JS is unavailable.
+        -->
+        <a id="download-btn"
+           class="download-btn"
+           href="https://github.com/NeelShah1505/Utter/releases/latest"
+           aria-disabled="true"
+           aria-label="Download Utter">
+          <!-- JS populates this text -->
+          Download
+        </a>
+        <!-- TODO: Replace NeelShah1505/Utter placeholder above once Q-001 resolved -->
+
+        <p id="download-meta" class="download-meta" aria-live="polite" hidden></p>
+
+        <!--
+          "Other platforms" disclosure.
+          Hidden until ui.js populates and reveals it.
+          Always visible as a fallback in the noscript block.
+        -->
+        <details id="other-platforms" class="other-platforms" hidden>
+          <summary>Other platforms &amp; versions</summary>
+          <ul id="other-platforms-list" aria-label="All available downloads">
+            <!-- Populated by ui.js -->
+          </ul>
+        </details>
+
+        <!--
+          JS-disabled fallback.
+          Shown only when JavaScript is unavailable or blocked.
+          Contains all four canonical download links as static text.
+          The dynamic #download-btn is hidden in this case.
+        -->
+        <noscript>
+          <style>
+            #download-btn { display: none !important; }
+            #download-meta { display: none !important; }
+          </style>
+          <div class="noscript-downloads">
+            <p>JavaScript is disabled. Choose your download:</p>
+            <ul>
+              <li>
+                <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-macos-arm64.dmg">
+                  app-macos-arm64.dmg — macOS Apple Silicon
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-macos-x64.dmg">
+                  app-macos-x64.dmg — macOS Intel
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-windows-x64.msi">
+                  app-windows-x64.msi — Windows x64
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-windows-arm64.msi">
+                  app-windows-arm64.msi — Windows ARM64
+                </a>
+              </li>
+            </ul>
+          </div>
+          <!-- TODO: Replace NeelShah1505/Utter in all four links above once Q-001 resolved -->
+        </noscript>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         2. Features
+         ================================================================= -->
+    <section id="features" class="section" aria-labelledby="features-heading">
+      <div class="container">
+        <p class="section__label">Features</p>
+        <h2 class="section__heading" id="features-heading">Built for focus, not friction</h2>
+        <p class="section__lead">
+          Everything you need to dictate into any app. Nothing you don't.
+        </p>
+
+        <div class="features-grid">
+
+          <article class="feature-card">
+            <div class="feature-card__icon" aria-hidden="true">
+              <!-- Waveform icon -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="2"  x2="12" y2="22"/>
+                <line x1="8"  y1="6"  x2="8"  y2="18"/>
+                <line x1="4"  y1="9"  x2="4"  y2="15"/>
+                <line x1="16" y1="6"  x2="16" y2="18"/>
+                <line x1="20" y1="9"  x2="20" y2="15"/>
+              </svg>
+            </div>
+            <h3 class="feature-card__title">Streaming transcription</h3>
+            <p class="feature-card__desc">
+              Text appears as you speak — under 300ms latency on a mid-range laptop.
+              Powered by Apple ANE on Apple Silicon, whisper.cpp on Intel and Windows.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-card__icon" aria-hidden="true">
+              <!-- Offline/no-cloud icon -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23"/>
+                <path d="M18 9a6 6 0 0 0-9.4-4.9M5.7 5.7A7 7 0 0 0 5 9c0 2.6 1.4 4.9 3.5 6.2"/>
+                <path d="M10.4 17.8a5 5 0 0 0 5.5-1.2"/>
+              </svg>
+            </div>
+            <h3 class="feature-card__title">Works completely offline</h3>
+            <p class="feature-card__desc">
+              No network connection required. Core dictation runs on-device — audio
+              never leaves your machine. Works on a plane, in a basement, anywhere.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-card__icon" aria-hidden="true">
+              <!-- No-account / person-off icon -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4 3.6-7 8-7"/>
+                <line x1="17" y1="16" x2="23" y2="22"/>
+                <line x1="23" y1="16" x2="17" y2="22"/>
+              </svg>
+            </div>
+            <h3 class="feature-card__title">No account required</h3>
+            <p class="feature-card__desc">
+              Install and use immediately. No sign-up, no email, no subscription.
+              No telemetry and no crash reporting — ever.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-card__icon" aria-hidden="true">
+              <!-- Sparkle / AI icon -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+              </svg>
+            </div>
+            <h3 class="feature-card__title">Optional AI cleanup</h3>
+            <p class="feature-card__desc">
+              Off by default. Optionally route transcripts through a local Ollama
+              instance, a remote Ollama server, or any OpenAI-compatible API to
+              fix filler words and grammar.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-card__icon" aria-hidden="true">
+              <!-- Open source / code icon -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </div>
+            <h3 class="feature-card__title">Open source, MIT license</h3>
+            <p class="feature-card__desc">
+              Full source available on GitHub. Inspect what runs on your machine,
+              contribute improvements, or fork it for your own use — no restrictions.
+            </p>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         3. How it works
+         ================================================================= -->
+    <section id="how-it-works" class="section" aria-labelledby="how-heading">
+      <div class="container container--prose">
+        <p class="section__label">How it works</p>
+        <h2 class="section__heading" id="how-heading">Three steps, then just talk</h2>
+        <p class="section__lead">
+          No model downloads. No account setup. No configuration required.
+        </p>
+
+        <div class="steps">
+          <div class="step">
+            <p class="step__number">01</p>
+            <h3 class="step__title">Install</h3>
+            <p class="step__desc">
+              Download the installer for your platform. Run it. The app is roughly
+              10 MB and installs like any other desktop application.
+            </p>
+          </div>
+
+          <div class="step">
+            <p class="step__number">02</p>
+            <h3 class="step__title">Grant permissions</h3>
+            <p class="step__desc">
+              The first time you dictate, your OS will ask for microphone access.
+              On macOS, Accessibility access is also needed to insert text. You
+              grant both once, in system settings.
+            </p>
+          </div>
+
+          <div class="step">
+            <p class="step__number">03</p>
+            <h3 class="step__title">Press the hotkey and speak</h3>
+            <p class="step__desc">
+              Press <kbd>Cmd+Shift+D</kbd> (macOS) or <kbd>Ctrl+Shift+D</kbd>
+              (Windows) from any application. Speak. Your words appear where your
+              cursor is. Press again to stop.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         4. System requirements
+         ================================================================= -->
+    <section id="requirements" class="section" aria-labelledby="req-heading">
+      <div class="container">
+        <p class="section__label">System requirements</p>
+        <h2 class="section__heading" id="req-heading">Platform support</h2>
+
+        <div class="sysreq-table-wrap">
+          <table class="sysreq-table">
+            <caption class="visually-hidden">System requirements per platform</caption>
+            <thead>
+              <tr>
+                <th scope="col">Platform</th>
+                <th scope="col">OS version</th>
+                <th scope="col">Architecture</th>
+                <th scope="col">ASR engine</th>
+                <th scope="col">Installer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>macOS (Apple Silicon)</td>
+                <td>macOS 12 Monterey or later</td>
+                <td>arm64 (M1, M2, M3, M4)</td>
+                <td>FluidAudio + Parakeet TDT v3 (ANE)</td>
+                <td><code>app-macos-arm64.dmg</code></td>
+              </tr>
+              <tr>
+                <td>macOS (Intel)</td>
+                <td>macOS 12 Monterey or later</td>
+                <td>x86_64</td>
+                <td>whisper.cpp (CPU)</td>
+                <td><code>app-macos-x64.dmg</code></td>
+              </tr>
+              <tr>
+                <td>Windows</td>
+                <td>Windows 10 or later</td>
+                <td>x64</td>
+                <td>whisper.cpp (CPU; CUDA if NVIDIA GPU detected)</td>
+                <td><code>app-windows-x64.msi</code></td>
+              </tr>
+              <tr>
+                <td>Windows on ARM <span class="badge-experimental">Experimental</span></td>
+                <td>Windows 11 or later</td>
+                <td>ARM64</td>
+                <td>whisper.cpp (CPU)</td>
+                <td><code>app-windows-arm64.msi</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin-top: var(--space-3); font-size: 0.875rem; color: var(--text-muted);">
+          Linux is not supported in the current release. The codebase is open source — contributions welcome.
+        </p>
+      </div>
+    </section>
+
+    <!-- =================================================================
+         5. Open source
+         ================================================================= -->
+    <section id="open-source" class="section oss-section" aria-labelledby="oss-heading">
+      <div class="container container--prose">
+        <p class="section__label">Open source</p>
+        <h2 class="section__heading" id="oss-heading">Built in the open</h2>
+        <p class="section__lead">
+          Every line of code is on GitHub. Decisions, tradeoffs, and bugs are
+          documented in the repository — not in a private Slack channel.
+        </p>
+
+        <p>
+          Licensed under the <strong>MIT License</strong>. No GPL, no AGPL, no
+          commercial restrictions. Use it, fork it, ship it.
+        </p>
+
+        <div class="oss-section__links">
+          <a class="btn-outline"
+             href="https://github.com/NeelShah1505/Utter"
+             rel="noopener noreferrer"
+             aria-label="View source on GitHub">
+            <!-- GitHub icon -->
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+            </svg>
+            View on GitHub
+          </a>
+          <!-- TODO: Replace NeelShah1505/Utter above once Q-001 resolved -->
+
+          <!-- TODO: Add CONTRIBUTING.md link once Phase 1 is started -->
+          <!--
+          <a class="btn-outline" href="https://github.com/NeelShah1505/Utter/blob/main/CONTRIBUTING.md">
+            Contributing guide
+          </a>
+          -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================
+       Site Footer
+       =================================================================== -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <div>
+        <span>© 2024 Utter contributors</span>
+        <!-- TODO: Update year and maintainer name once Q-001/Q-002 resolved -->
+      </div>
+
+      <nav class="site-footer__links" aria-label="Footer navigation">
+        <a href="https://github.com/NeelShah1505/Utter" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/NeelShah1505/Utter/blob/main/LICENSE" rel="noopener noreferrer">MIT License</a>
+        <a href="https://github.com/NeelShah1505/Utter/releases" rel="noopener noreferrer">Releases</a>
+        <!-- TODO: Replace NeelShah1505/Utter in all three links above once Q-001 resolved -->
+      </nav>
+
+      <p class="footer-privacy">No cookies. No tracking.</p>
+    </div>
+  </footer>
+
+  <!--
+    Load ui.js as an ES module. type="module" defers automatically.
+    ui.js imports detect.js and releases.js — no bundler needed.
+    If JS is disabled, the noscript block in the hero section handles the fallback.
+  -->
+  <script type="module" src="assets/ui.js"></script>
+
+</body>
+</html>

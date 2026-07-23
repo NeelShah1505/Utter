@@ -1,0 +1,59 @@
+# deploy-site.yml — Deploy the Dictate marketing site to GitHub Pages
+#
+# Triggers: push to main affecting files in site/
+# Deploy target: GitHub Pages (classic, actions-based)
+#
+# WHY GitHub Pages: Free, lives next to the repo, no vendor lock-in.
+# WHY no build step: The site is vanilla HTML/CSS/JS — see docs/DESIGN.md §3.1.
+#
+# To enable this workflow:
+#   1. Go to repo Settings → Pages → Source → select "GitHub Actions"
+#   2. Push any change to site/ on main — the workflow runs and deploys.
+
+name: Deploy Site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'site/**'
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+# Only one deploy runs at a time; cancel in-progress if a newer push arrives.
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write  # Required by actions/deploy-pages
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No build step — the site is raw static files.
+      # We upload site/ directly as the Pages artifact.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the entire site/ directory
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

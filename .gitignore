@@ -1,0 +1,7 @@
+# Git ignore
+refer.txt
+*.DS_Store
+.DS_Store
+node_modules/
+lighthouse-report.html
+lh.json
