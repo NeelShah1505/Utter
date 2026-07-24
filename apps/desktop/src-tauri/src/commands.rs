@@ -23,29 +23,24 @@ use tauri::{AppHandle, Emitter, State};
 // Dictation control
 // ---------------------------------------------------------------------------
 
-/// Start dictation. Transitions: Idle → Listening.
-/// Opens the microphone and begins accumulating audio.
-#[tauri::command]
-pub async fn start_dictation(
-    app: AppHandle,
-    state: State<'_, SharedState>,
-) -> Result<()> {
-    // --- Read current status and settings (brief lock) ---
+// ---------------------------------------------------------------------------
+// Core dictation logic (public so hotkey/mod.rs can call directly)
+// ---------------------------------------------------------------------------
+
+/// Core logic for starting dictation.
+/// Called by both the IPC command and the hotkey handler.
+pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Result<()> {
     let (current_status, engine, settings) = {
         let locked = state.lock().expect("state poisoned");
-        (
-            locked.status.clone(),
-            locked.engine.clone(),
-            locked.settings.clone(),
-        )
+        (locked.status.clone(), locked.engine.clone(), locked.settings.clone())
     };
 
     match current_status {
-        Status::Listening | Status::Transcribing => return Ok(()), // idempotent
+        Status::Listening | Status::Transcribing => return Ok(()),
         _ => {}
     }
 
-    // --- Initialise engine lazily on first use ---
+    // Initialise engine lazily on first use
     let engine: Arc<PlatformEngine> = match engine {
         Some(e) => e,
         None => {
@@ -57,17 +52,14 @@ pub async fn start_dictation(
         }
     };
 
-    // --- Start ASR session ---
     let session_id = engine.start_session().map_err(AppError::from)?;
 
-    // --- Clear audio buffer ---
     let audio_buffer = {
         let locked = state.lock().expect("state poisoned");
         locked.audio_buffer.lock().expect("audio lock poisoned").clear();
         locked.audio_buffer.clone()
     };
 
-    // --- Open microphone ---
     let device = mic::find_device(&settings.audio_device)?;
     let mic_config = mic::preferred_config(&device)?;
 
@@ -76,7 +68,6 @@ pub async fn start_dictation(
         buf.extend_from_slice(chunk);
     })?;
 
-    // --- Commit to Listening state ---
     {
         let mut locked = state.lock().expect("state poisoned");
         locked.status         = Status::Listening;
@@ -89,13 +80,23 @@ pub async fn start_dictation(
     Ok(())
 }
 
-/// Stop dictation. Transitions: Listening → Transcribing → Idle.
-/// Stops the mic, runs ASR + cleanup, inserts text, emits transcript_final.
+// ---------------------------------------------------------------------------
+// IPC command wrappers (thin — just unwrap Tauri State and delegate)
+// ---------------------------------------------------------------------------
+
+/// Start dictation (IPC). Transitions: Idle → Listening.
 #[tauri::command]
-pub async fn stop_dictation(
+pub async fn start_dictation(
     app: AppHandle,
     state: State<'_, SharedState>,
 ) -> Result<()> {
+    start_dictation_impl(&app, &state).await
+}
+
+
+/// Core logic for stopping dictation.
+/// Called by both the IPC command and the hotkey handler.
+pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result<()> {
     // --- Grab what we need and stop the mic (brief lock) ---
     let (engine, session_id, audio_buffer, cleanup_cfg) = {
         let mut locked = state.lock().expect("state poisoned");
@@ -201,6 +202,15 @@ pub async fn stop_dictation(
     let _ = app.emit("state_change", serde_json::json!({ "status": "Idle" }));
 
     Ok(())
+}
+
+/// Stop dictation (IPC). Transitions: Listening → Transcribing → Idle.
+#[tauri::command]
+pub async fn stop_dictation(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+) -> Result<()> {
+    stop_dictation_impl(&app, &state).await
 }
 
 // ---------------------------------------------------------------------------
