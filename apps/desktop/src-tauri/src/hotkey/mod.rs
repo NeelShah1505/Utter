@@ -34,7 +34,17 @@ pub fn register(app: &AppHandle, state: SharedState) -> anyhow::Result<()> {
                 return;
             }
             log::debug!("hotkey fired: {shortcut}");
-            handle_hotkey(app.clone(), state.clone());
+            
+            let state_clone = state.clone();
+            let app_clone = app.clone();
+            
+            let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+                handle_hotkey(app_clone, state_clone);
+            }));
+            
+            if let Err(e) = res {
+                log::error!("PANIC IN HOTKEY HANDLER: {:?}", e);
+            }
         }
     })?;
 
@@ -53,7 +63,7 @@ fn handle_hotkey(app: AppHandle, state: SharedState) {
         // ── Idle → start recording ───────────────────────────────────────
         Status::Idle => {
             log::info!("hotkey: starting dictation");
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 if let Err(e) = commands::start_dictation_impl(&app, &state).await {
                     log::error!("start_dictation failed: {e}");
                     let _ = app.emit(
@@ -69,7 +79,7 @@ fn handle_hotkey(app: AppHandle, state: SharedState) {
         // ── Listening → stop recording, run ASR, insert text ─────────────
         Status::Listening => {
             log::info!("hotkey: stopping dictation");
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 if let Err(e) = commands::stop_dictation_impl(&app, &state).await {
                     log::error!("stop_dictation failed: {e}");
                     let _ = app.emit(
