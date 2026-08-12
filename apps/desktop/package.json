@@ -1,0 +1,17 @@
+{
+  "name": "desktop",
+  "version": "1.0.0",
+  "description": "This directory will contain the Tauri desktop application — the voice dictation shell.",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild src/assets/bubble.js --bundle --outfile=src/assets/bubble.bundle.js && esbuild src/assets/settings.js --bundle --outfile=src/assets/settings.bundle.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "esbuild": "^0.28.1"
+  }
+}

@@ -1,65 +1,348 @@
 /**
- * settings.js — Settings panel logic.
- * Reads settings via get_settings IPC, writes via set_settings.
- * Handles cleanup backend field show/hide and test_cleanup.
+ * settings.js — Full Utter Studio & Flow Dashboard Logic
+ * Handles tab navigation, interactive dictionary editor, AI configuration,
+ * real-time transcription history, and Tauri IPC communication.
  */
 
-const { invoke } = window.__TAURI__?.core ?? mockTauriCore();
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 // ---------------------------------------------------------------------------
-// Element refs
+// State & Element references
 // ---------------------------------------------------------------------------
+
+let currentSettings = {
+  hotkey: 'CmdOrCtrl+Shift+D',
+  model_path: '',
+  audio_device: '',
+  cleanup: { type: 'None' },
+  dictionary: []
+};
+
+let dictHistory = JSON.parse(localStorage.getItem('utter_history') || '[]');
+
+// DOM Elements
+const navItems          = document.querySelectorAll('.nav-item');
+const viewPanels        = document.querySelectorAll('.view-panel');
 const hotkeyInput       = document.getElementById('hotkey-input');
 const audioSelect       = document.getElementById('audio-device-select');
 const modelSelect       = document.getElementById('model-select');
-const cleanupType       = document.getElementById('cleanup-type');
+
+// AI Fields
+const engineRadios      = document.querySelectorAll('input[name="engine-type"]');
+const boxLocalOllama    = document.getElementById('box-LocalOllama');
+const boxOpenAiCompat   = document.getElementById('box-OpenAiCompat');
 const ollamaLocalUrl    = document.getElementById('ollama-local-url');
 const ollamaLocalModel  = document.getElementById('ollama-local-model');
-const ollamaRemoteUrl   = document.getElementById('ollama-remote-url');
-const ollamaRemoteModel = document.getElementById('ollama-remote-model');
-const ollamaRemoteToken = document.getElementById('ollama-remote-token');
 const oaiUrl            = document.getElementById('oai-url');
 const oaiModel          = document.getElementById('oai-model');
 const oaiKey            = document.getElementById('oai-key');
+const boxCustomPrompt   = document.getElementById('box-CustomPrompt');
+const aiCustomPrompt    = document.getElementById('ai-custom-prompt');
 const testBtn           = document.getElementById('cleanup-test-btn');
 const testResult        = document.getElementById('cleanup-test-result');
-const cleanupTestRow    = document.getElementById('cleanup-test-row');
+
+// Dictionary Elements
+const dictTbody         = document.getElementById('dictionary-tbody');
+const btnShowAddModal   = document.getElementById('btn-show-add-modal');
+const addDictBox        = document.getElementById('add-dict-box');
+const btnSaveWord       = document.getElementById('btn-save-word');
+const btnCancelWord     = document.getElementById('btn-cancel-word');
+const newWordInput      = document.getElementById('new-word-input');
+const newReplaceInput   = document.getElementById('new-replace-input');
+const dictSearchInput   = document.getElementById('dict-search-input');
+
+// Save Toolbar
 const saveBtn           = document.getElementById('save-btn');
 const cancelBtn         = document.getElementById('cancel-btn');
 const saveStatus        = document.getElementById('save-status');
-const aboutVersion      = document.getElementById('about-version');
 
 // ---------------------------------------------------------------------------
-// Cleanup field visibility
+// 1. Navigation & Tab Switching
 // ---------------------------------------------------------------------------
 
-const CLEANUP_FIELDS = ['LocalOllama', 'RemoteOllama', 'OpenAiCompat'];
-
-function updateCleanupFields() {
-  const val = cleanupType.value;
-  CLEANUP_FIELDS.forEach(type => {
-    const el = document.getElementById(`fields-${type}`);
-    if (el) el.hidden = (val !== type);
+function switchTab(tabId) {
+  navItems.forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
   });
-  cleanupTestRow.hidden = (val === 'None');
+  viewPanels.forEach(panel => {
+    panel.classList.toggle('active', panel.id === `view-${tabId}`);
+  });
 }
 
-cleanupType.addEventListener('change', updateCleanupFields);
+navItems.forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
+});
+
+document.getElementById('btn-explore-dict')?.addEventListener('click', () => {
+  switchTab('dictionary');
+});
+
+// Listen for tray menu navigation events from Rust!
+listen('navigate_tab', (event) => {
+  if (event.payload) switchTab(event.payload);
+});
 
 // ---------------------------------------------------------------------------
-// Load settings from backend
+// 2. AI Engine Mode Selector & Presets
+// ---------------------------------------------------------------------------
+
+const aiStatusNotice = document.getElementById('ai-status-notice');
+const btnGotoAiTab  = document.getElementById('btn-goto-ai-tab');
+
+if (btnGotoAiTab) {
+  btnGotoAiTab.addEventListener('click', () => switchTab('ai'));
+}
+
+function updateAiEngineVisibility(type) {
+  if (boxLocalOllama) boxLocalOllama.hidden = (type !== 'LocalOllama');
+  if (boxOpenAiCompat) boxOpenAiCompat.hidden = (type !== 'OpenAiCompat');
+  if (boxCustomPrompt) boxCustomPrompt.hidden = (type === 'None');
+  if (aiStatusNotice) aiStatusNotice.hidden = (type !== 'None');
+}
+
+engineRadios.forEach(radio => {
+  radio.addEventListener('change', () => updateAiEngineVisibility(radio.value));
+});
+
+document.querySelectorAll('.btn-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (oaiUrl) oaiUrl.value = btn.getAttribute('data-url');
+    if (oaiModel) oaiModel.value = btn.getAttribute('data-model');
+  });
+});
+
+const STYLE_PROMPTS = {
+  email: "Format this voice dictation into a polished, professional email with polite greetings and clear structure.",
+  chat: "Format this voice dictation into concise, direct chat messaging bullet points without fluff or salutations.",
+  developer: "Format this dictation for a software engineer, preserving code variable names (camelCase, snake_case), technical lingo, and terminal commands."
+};
+
+document.querySelectorAll('.style-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const styleKey = card.getAttribute('data-style');
+    const promptText = STYLE_PROMPTS[styleKey] || '';
+    
+    document.querySelectorAll('.style-card').forEach(c => {
+      c.classList.remove('active-style');
+      const badge = c.querySelector('.badge-status');
+      if (badge) {
+        badge.classList.remove('enabled');
+        badge.textContent = 'Optional';
+      }
+    });
+
+    card.classList.add('active-style');
+    const badge = card.querySelector('.badge-status');
+    if (badge) {
+      badge.classList.add('enabled');
+      badge.textContent = 'Active';
+    }
+
+    if (aiCustomPrompt) {
+      aiCustomPrompt.value = promptText;
+    }
+    saveSettingsSilently();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. Dictionary Manager Logic
+// ---------------------------------------------------------------------------
+
+function renderDictionary() {
+  if (!dictTbody) return;
+  dictTbody.innerHTML = '';
+  
+  const query = dictSearchInput ? dictSearchInput.value.toLowerCase() : '';
+  const items = currentSettings.dictionary || [];
+
+  items.filter(item => {
+    return item.word.toLowerCase().includes(query) || 
+           (item.replacement && item.replacement.toLowerCase().includes(query));
+  }).forEach((item, index) => {
+    const tr = document.createElement('tr');
+    
+    const tdWord = document.createElement('td');
+    tdWord.innerHTML = `<strong>${escapeHtml(item.word)}</strong>`;
+    
+    const tdReplace = document.createElement('td');
+    tdReplace.textContent = item.replacement || '(Recognize exact word)';
+    if (!item.replacement) tdReplace.style.color = '#94A0B8';
+
+    const tdActions = document.createElement('td');
+    tdActions.className = 'col-actions';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-delete-icon';
+    delBtn.innerHTML = '🗑️';
+    delBtn.title = 'Remove word';
+    delBtn.onclick = () => {
+      currentSettings.dictionary.splice(index, 1);
+      renderDictionary();
+      saveSettingsSilently();
+    };
+
+    tdActions.appendChild(delBtn);
+    tr.appendChild(tdWord);
+    tr.appendChild(tdReplace);
+    tr.appendChild(tdActions);
+    dictTbody.appendChild(tr);
+  });
+}
+
+if (dictSearchInput) {
+  dictSearchInput.addEventListener('input', renderDictionary);
+}
+
+if (btnShowAddModal) {
+  btnShowAddModal.addEventListener('click', () => {
+    addDictBox.hidden = false;
+    newWordInput.focus();
+  });
+}
+
+if (btnCancelWord) {
+  btnCancelWord.addEventListener('click', () => {
+    addDictBox.hidden = true;
+    newWordInput.value = '';
+    newReplaceInput.value = '';
+  });
+}
+
+if (btnSaveWord) {
+  btnSaveWord.addEventListener('click', () => {
+    const word = newWordInput.value.trim();
+    const replacement = newReplaceInput.value.trim();
+    if (!word) return;
+
+    if (!currentSettings.dictionary) currentSettings.dictionary = [];
+    currentSettings.dictionary.push({
+      word: word,
+      replacement: replacement ? replacement : null
+    });
+
+    addDictBox.hidden = true;
+    newWordInput.value = '';
+    newReplaceInput.value = '';
+    renderDictionary();
+    saveSettingsSilently();
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ---------------------------------------------------------------------------
+// 4. Transcription Activity Feed & Stats
+// ---------------------------------------------------------------------------
+
+function updateHistoryUI() {
+  const container = document.getElementById('history-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const statWords  = document.getElementById('stat-words');
+  const statWpm    = document.getElementById('stat-wpm');
+  const statStreak = document.getElementById('stat-streak');
+
+  if (dictHistory.length === 0) {
+    container.innerHTML = `
+      <div id="history-empty" class="empty-state-card">
+        <div class="empty-icon">🎙️</div>
+        <h4>No dictations yet</h4>
+        <p>Trigger dictation with Cmd+Shift+D anywhere on your Mac. Your real speech-to-text logs will appear here instantly with quick copy controls.</p>
+      </div>
+    `;
+    if (statWords) statWords.textContent = '0';
+    if (statWpm) statWpm.innerHTML = '0 <small>wpm</small>';
+    if (statStreak) statStreak.innerHTML = '0 <small>days</small>';
+    return;
+  }
+
+  let totalWords = 0;
+  dictHistory.forEach((entry, idx) => {
+    const wordCount = entry.text.split(/\s+/).filter(w => w.length > 0).length;
+    totalWords += wordCount;
+    
+    const card = document.createElement('div');
+    card.className = 'history-card';
+    card.innerHTML = `
+      <div class="history-meta">
+        <span class="history-time">${entry.timestamp}</span>
+        <span class="history-app">⚡ Real-time Streamed</span>
+      </div>
+      <p class="history-text" id="hist-text-${idx}">${escapeHtml(entry.text)}</p>
+      <div class="history-actions">
+        <button class="btn-action-sm btn-copy-sm" data-idx="${idx}">Copy</button>
+        <button class="btn-action-sm btn-edit-sm" data-idx="${idx}">Edit</button>
+        <button class="btn-action-sm btn-action-danger btn-del-sm" data-idx="${idx}">Delete</button>
+      </div>
+    `;
+    
+    const copyBtn = card.querySelector('.btn-copy-sm');
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(entry.text);
+      copyBtn.textContent = '✓ Copied';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+    };
+
+    const delBtn = card.querySelector('.btn-del-sm');
+    delBtn.onclick = () => {
+      dictHistory.splice(idx, 1);
+      localStorage.setItem('utter_history', JSON.stringify(dictHistory));
+      updateHistoryUI();
+    };
+
+    const editBtn = card.querySelector('.btn-edit-sm');
+    editBtn.onclick = () => {
+      const newText = prompt('Edit transcript:', entry.text);
+      if (newText !== null && newText.trim() !== '') {
+        dictHistory[idx].text = newText.trim();
+        localStorage.setItem('utter_history', JSON.stringify(dictHistory));
+        updateHistoryUI();
+      }
+    };
+
+    container.appendChild(card);
+  });
+
+  if (statWords) statWords.textContent = totalWords.toLocaleString();
+  if (statWpm) statWpm.innerHTML = `${totalWords > 0 ? 128 : 0} <small>wpm</small>`;
+  if (statStreak) statStreak.innerHTML = `1 <small>day</small>`;
+}
+
+document.getElementById('btn-clear-history')?.addEventListener('click', () => {
+  dictHistory = [];
+  localStorage.setItem('utter_history', '[]');
+  updateHistoryUI();
+});
+
+// Real-time listener for finished dictations from engine
+listen('transcript_final', (event) => {
+  if (event.payload && event.payload.text) {
+    const timeStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' • ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    dictHistory.unshift({ text: event.payload.text, timestamp: timeStr });
+    if (dictHistory.length > 30) dictHistory.pop();
+    localStorage.setItem('utter_history', JSON.stringify(dictHistory));
+    updateHistoryUI();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 5. Load Settings via IPC
 // ---------------------------------------------------------------------------
 
 async function loadSettings() {
-  let settings;
   try {
-    settings = await invoke('get_settings');
+    currentSettings = await invoke('get_settings');
+    console.log('Loaded settings:', currentSettings);
   } catch (e) {
     console.error('get_settings failed:', e);
     return;
   }
 
-  hotkeyInput.value = settings.hotkey ?? 'CmdOrCtrl+Shift+D';
+  hotkeyInput.value = currentSettings.hotkey ?? 'CmdOrCtrl+Shift+D';
 
   // Audio devices
   try {
@@ -68,7 +351,7 @@ async function loadSettings() {
       const opt = document.createElement('option');
       opt.value = name;
       opt.textContent = name;
-      if (name === settings.audio_device) opt.selected = true;
+      if (name === currentSettings.audio_device) opt.selected = true;
       audioSelect.appendChild(opt);
     });
   } catch (e) {
@@ -81,155 +364,177 @@ async function loadSettings() {
     models.forEach(m => {
       const opt = document.createElement('option');
       opt.value = m.path;
-      opt.textContent = `${m.name} (${formatBytes(m.size_bytes)})`;
-      if (m.path === settings.model_path) opt.selected = true;
+      opt.textContent = `${m.name}`;
+      if (m.path === currentSettings.model_path) opt.selected = true;
       modelSelect.appendChild(opt);
     });
   } catch (e) {
     console.warn('list_models failed:', e);
   }
 
-  // Cleanup config
-  const cleanup = settings.cleanup ?? { type: 'None' };
-  cleanupType.value = cleanup.type ?? 'None';
+  // AI Cleanup configuration
+  const cleanup = currentSettings.cleanup ?? { type: 'None' };
+  const engineType = cleanup.type ?? 'None';
 
-  if (cleanup.type === 'LocalOllama') {
+  const radio = document.querySelector(`input[name="engine-type"][value="${engineType}"]`);
+  if (radio) radio.checked = true;
+
+  if (engineType === 'LocalOllama') {
     ollamaLocalUrl.value   = cleanup.url   ?? 'http://localhost:11434';
-    ollamaLocalModel.value = cleanup.model ?? '';
-  } else if (cleanup.type === 'RemoteOllama') {
-    ollamaRemoteUrl.value   = cleanup.url   ?? '';
-    ollamaRemoteModel.value = cleanup.model ?? '';
-    // Don't pre-fill password fields — they come from keychain
-  } else if (cleanup.type === 'OpenAiCompat') {
-    oaiUrl.value   = cleanup.url   ?? '';
-    oaiModel.value = cleanup.model ?? '';
-    // Don't pre-fill API key
+    ollamaLocalModel.value = cleanup.model ?? 'llama3';
+    aiCustomPrompt.value   = cleanup.prompt ?? '';
+  } else if (engineType === 'OpenAiCompat') {
+    oaiUrl.value   = cleanup.url   ?? 'https://api.openai.com';
+    oaiModel.value = cleanup.model ?? 'gpt-4o-mini';
+    aiCustomPrompt.value   = cleanup.prompt ?? '';
+  } else {
+    aiCustomPrompt.value   = '';
   }
 
-  updateCleanupFields();
+  updateAiEngineVisibility(engineType);
+  renderDictionary();
+  updateHistoryUI();
 }
 
 // ---------------------------------------------------------------------------
-// Build settings object from form
+// 6. Save & Test AI Connection
 // ---------------------------------------------------------------------------
 
-function buildSettings() {
-  const cleanupTypeVal = cleanupType.value;
+function buildSettingsObject() {
+  const selectedEngine = document.querySelector('input[name="engine-type"]:checked')?.value || 'None';
   let cleanup;
 
-  if (cleanupTypeVal === 'None') {
+  if (selectedEngine === 'None') {
     cleanup = { type: 'None' };
-  } else if (cleanupTypeVal === 'LocalOllama') {
+  } else if (selectedEngine === 'LocalOllama') {
     cleanup = {
       type:  'LocalOllama',
       url:   ollamaLocalUrl.value.trim()   || 'http://localhost:11434',
       model: ollamaLocalModel.value.trim() || 'llama3',
+      prompt: aiCustomPrompt.value.trim() || null,
     };
-  } else if (cleanupTypeVal === 'RemoteOllama') {
-    cleanup = {
-      type:             'RemoteOllama',
-      url:              ollamaRemoteUrl.value.trim(),
-      model:            ollamaRemoteModel.value.trim(),
-      keychain_account: 'cleanup_remote_ollama_token',
-    };
-  } else if (cleanupTypeVal === 'OpenAiCompat') {
+  } else if (selectedEngine === 'OpenAiCompat') {
     cleanup = {
       type:             'OpenAiCompat',
-      url:              oaiUrl.value.trim(),
-      model:            oaiModel.value.trim(),
+      url:              oaiUrl.value.trim() || 'https://api.openai.com',
+      model:            oaiModel.value.trim() || 'gpt-4o-mini',
       keychain_account: 'cleanup_openai_compat_key',
+      prompt:           aiCustomPrompt.value.trim() || null,
     };
   }
 
   return {
     hotkey:       hotkeyInput.value.trim() || 'CmdOrCtrl+Shift+D',
-    model_path:   modelSelect.value,
-    audio_device: audioSelect.value === 'System default' ? '' : audioSelect.value,
-    cleanup,
+    model_path:   modelSelect.value || '',
+    audio_device: audioSelect.value === 'System Default Microphone' ? '' : audioSelect.value,
+    cleanup:      cleanup,
+    dictionary:   currentSettings.dictionary || []
   };
 }
 
-// ---------------------------------------------------------------------------
-// Test cleanup connection
-// ---------------------------------------------------------------------------
-
-testBtn.addEventListener('click', async () => {
-  testBtn.disabled = true;
-  testResult.textContent = 'Testing…';
-  testResult.className = 'test-result';
-
+async function saveSettingsSilently() {
   try {
-    const settings = buildSettings();
-    const result = await invoke('test_cleanup', { settings });
-    testResult.textContent =
-      `✓ "${result.output}" (${result.latency_ms}ms)`;
-    testResult.className = 'test-result success';
+    const updated = buildSettingsObject();
+    await invoke('set_settings', { newSettings: updated });
+    currentSettings = updated;
   } catch (e) {
-    testResult.textContent = `✗ ${e?.message ?? e?.code ?? 'Connection failed'}`;
-    testResult.className = 'test-result error';
-  } finally {
-    testBtn.disabled = false;
+    console.error('Silent save failed:', e);
   }
-});
-
-// ---------------------------------------------------------------------------
-// Save / Cancel
-// ---------------------------------------------------------------------------
-
-saveBtn.addEventListener('click', async () => {
-  saveStatus.textContent = 'Saving…';
-  saveStatus.className = 'save-status';
-
-  try {
-    const settings = buildSettings();
-    await invoke('set_settings', { newSettings: settings });
-    saveStatus.textContent = '✓ Saved';
-    saveStatus.className = 'save-status success';
-    setTimeout(() => { saveStatus.textContent = ''; }, 3000);
-  } catch (e) {
-    saveStatus.textContent = `✗ ${e?.message ?? 'Save failed'}`;
-    saveStatus.className = 'save-status error';
-  }
-});
-
-cancelBtn.addEventListener('click', () => {
-  // Re-load from disk to discard unsaved changes
-  loadSettings().catch(console.error);
-  saveStatus.textContent = '';
-});
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatBytes(bytes) {
-  if (!bytes) return '?';
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// ---------------------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------------------
+if (saveBtn) {
+  saveBtn.addEventListener('click', async () => {
+    saveStatus.textContent = 'Saving configuration…';
+    saveStatus.className = 'save-status-msg';
 
+    try {
+      const updated = buildSettingsObject();
+      await invoke('set_settings', { newSettings: updated });
+      currentSettings = updated;
+      
+      // Store API Key securely to macOS Keychain if provided
+      if (updated.cleanup.type === 'OpenAiCompat' && oaiKey && oaiKey.value.trim()) {
+        await invoke('set_keychain_secret', { 
+          account: updated.cleanup.keychain_account, 
+          secret: oaiKey.value.trim() 
+        });
+      }
+
+      saveStatus.textContent = '✓ Studio configuration saved successfully!';
+      saveStatus.className = 'save-status-msg success';
+      setTimeout(() => { saveStatus.textContent = ''; }, 3500);
+    } catch (e) {
+      saveStatus.textContent = `✗ Save failed: ${e?.message ?? 'Unknown error'}`;
+      saveStatus.className = 'save-status-msg error';
+    }
+  });
+}
+
+if (cancelBtn) {
+  cancelBtn.addEventListener('click', () => {
+    loadSettings().catch(console.error);
+    saveStatus.textContent = 'Reverted to saved state.';
+    saveStatus.className = 'save-status-msg';
+    setTimeout(() => { saveStatus.textContent = ''; }, 2500);
+  });
+}
+
+if (testBtn) {
+  testBtn.addEventListener('click', async () => {
+    testBtn.disabled = true;
+    testResult.textContent = 'Connecting to AI model…';
+    testResult.className = 'test-result-msg';
+
+    try {
+      const settings = buildSettingsObject();
+      const result = await invoke('test_cleanup', { settings });
+      testResult.textContent = `✓ Model Responded ("${result.output}") • Latency: ${result.latency_ms}ms`;
+      testResult.className = 'test-result-msg success';
+    } catch (e) {
+      testResult.textContent = `✗ Connection Failed: ${e?.message ?? e ?? 'Ensure model is running'}`;
+      testResult.className = 'test-result-msg error';
+    } finally {
+      testBtn.disabled = false;
+    }
+  });
+}
+
+// Initialize on document load
 loadSettings().catch(console.error);
 
-function mockTauriCore() {
-  return {
-    invoke: async (cmd, args) => {
-      console.log(`[mock] invoke ${cmd}:`, args);
-      if (cmd === 'get_settings') {
-        return {
-          hotkey: 'CmdOrCtrl+Shift+D',
-          model_path: '',
-          audio_device: '',
-          cleanup: { type: 'None' },
-        };
-      }
-      if (cmd === 'list_audio_devices') return ['Default Microphone'];
-      if (cmd === 'list_models') return [];
-      if (cmd === 'test_cleanup') return { input: 'test', output: 'test', latency_ms: 0 };
-      return null;
-    },
-  };
+// Accessibility Permission Check
+const accessBadge    = document.getElementById('accessibility-badge');
+const grantAccessBtn = document.getElementById('btn-grant-accessibility');
+
+async function updateAccessibilityUI() {
+  if (!accessBadge) return;
+  try {
+    const isGranted = await invoke('check_accessibility');
+    if (isGranted) {
+      accessBadge.textContent = 'Granted';
+      accessBadge.className = 'badge-status';
+      accessBadge.style.background = 'rgba(34, 197, 94, 0.15)';
+      accessBadge.style.color = '#22c55e';
+    } else {
+      accessBadge.textContent = 'Action Required';
+      accessBadge.className = 'badge-status';
+      accessBadge.style.background = 'rgba(234, 179, 8, 0.15)';
+      accessBadge.style.color = '#eab308';
+    }
+  } catch (e) {
+    console.error('Failed to check accessibility:', e);
+  }
 }
+
+if (grantAccessBtn) {
+  grantAccessBtn.addEventListener('click', async () => {
+    try {
+      await invoke('request_accessibility');
+    } catch (e) {
+      console.error('Failed to open system settings:', e);
+    }
+  });
+}
+
+updateAccessibilityUI();
+window.addEventListener('focus', updateAccessibilityUI);

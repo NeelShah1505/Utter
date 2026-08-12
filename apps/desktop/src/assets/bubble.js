@@ -8,8 +8,8 @@
  *   transcript_final   { text: string }
  */
 
-const { listen, emit } = window.__TAURI__?.event ?? mockTauriEvent();
-const { invoke }       = window.__TAURI__?.core   ?? mockTauriCore();
+import { listen, emit } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 
 const body          = document.body;
 const transcriptEl  = document.getElementById('transcript-text');
@@ -62,7 +62,7 @@ async function init() {
 
   // transcript_partial — stream of partial results while listening
   await listen('transcript_partial', ({ payload }) => {
-    transcriptEl.textContent = payload.text;
+    transcriptEl.textContent = payload.text || '';
   });
 
   // transcript_final — final result after processing
@@ -90,24 +90,4 @@ init().catch(console.error);
 // Dev fallback — allows opening index.html in a browser without Tauri
 // ---------------------------------------------------------------------------
 
-function mockTauriEvent() {
-  console.warn('Tauri not available — using mock event system');
-  return {
-    listen: async (event, cb) => {
-      console.log(`[mock] listening for event: ${event}`);
-      return () => {};
-    },
-    emit: async (event, payload) => {
-      console.log(`[mock] emit ${event}:`, payload);
-    },
-  };
-}
 
-function mockTauriCore() {
-  return {
-    invoke: async (cmd, args) => {
-      console.log(`[mock] invoke ${cmd}:`, args);
-      return { status: 'Idle' };
-    },
-  };
-}
