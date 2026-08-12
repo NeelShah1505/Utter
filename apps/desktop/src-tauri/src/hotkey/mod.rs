@@ -19,12 +19,11 @@ use crate::state::{SharedState, Status};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
-/// The global hotkey accelerator string. CmdOrCtrl maps to Cmd on macOS / Ctrl on Windows.
-pub const HOTKEY: &str = "CmdOrCtrl+Shift+D";
+// Removed hardcoded HOTKEY const; the hotkey is now dynamically loaded from settings.
 
-/// Register the global hotkey. Call once at app startup after the app is built.
-pub fn register(app: &AppHandle, state: SharedState) -> anyhow::Result<()> {
-    let shortcut: Shortcut = HOTKEY.parse().map_err(|e| anyhow::anyhow!("{e}"))?;
+/// Register the global hotkey dynamically.
+pub fn register(app: &AppHandle, state: SharedState, hotkey_str: &str) -> anyhow::Result<()> {
+    let shortcut: Shortcut = hotkey_str.parse().map_err(|e| anyhow::anyhow!("{e}"))?;
 
     app.global_shortcut().on_shortcut(shortcut, {
         let state = state.clone();
@@ -39,7 +38,7 @@ pub fn register(app: &AppHandle, state: SharedState) -> anyhow::Result<()> {
             let app_clone = app.clone();
             
             let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-                handle_hotkey(app_clone, state_clone);
+                toggle_dictation(app_clone, state_clone);
             }));
             
             if let Err(e) = res {
@@ -48,12 +47,18 @@ pub fn register(app: &AppHandle, state: SharedState) -> anyhow::Result<()> {
         }
     })?;
 
-    log::info!("hotkey: registered '{HOTKEY}'");
+    log::info!("hotkey: registered '{hotkey_str}'");
     Ok(())
 }
 
-/// Toggle dictation on each key-press.
-fn handle_hotkey(app: AppHandle, state: SharedState) {
+/// Unregister all global hotkeys (useful when updating the hotkey setting).
+pub fn unregister_all(app: &AppHandle) -> anyhow::Result<()> {
+    app.global_shortcut().unregister_all()?;
+    Ok(())
+}
+
+/// Toggle dictation on each key-press or tray menu click.
+pub fn toggle_dictation(app: AppHandle, state: SharedState) {
     let current_status = {
         let locked = state.lock().expect("state poisoned");
         locked.status.clone()

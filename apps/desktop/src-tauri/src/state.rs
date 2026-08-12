@@ -35,6 +35,9 @@ pub struct AppState {
     /// Shared with the cpal audio callback via Arc<Mutex<>>.
     pub audio_buffer: Arc<Mutex<Vec<f32>>>,
 
+    /// Tracks live transcribed text inserted at the cursor for real-time diff calculations.
+    pub last_streamed: Arc<Mutex<String>>,
+
     /// Owns the cpal stream. Dropping it stops the microphone.
     pub capture_handle: Option<CaptureHandle>,
 
@@ -51,6 +54,7 @@ impl AppState {
             status:         Status::Idle,
             session_id:     None,
             audio_buffer:   Arc::new(Mutex::new(Vec::with_capacity(16_000 * 60))),
+            last_streamed:  Arc::new(Mutex::new(String::new())),
             capture_handle: None,
             engine:         None,
             settings:       settings::load(),

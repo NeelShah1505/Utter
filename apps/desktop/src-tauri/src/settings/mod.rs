@@ -14,6 +14,12 @@ use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DictionaryItem {
+    pub word: String,
+    pub replacement: Option<String>,
+}
+
 /// The full application settings struct.
 /// All fields have serde defaults so a partially-written config file still loads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +36,10 @@ pub struct Settings {
 
     /// Cleanup backend configuration.
     pub cleanup: CleanupConfig,
+
+    /// Custom dictionary replacements and recognized phrases
+    #[serde(default)]
+    pub dictionary: Vec<DictionaryItem>,
 }
 
 impl Default for Settings {
@@ -39,6 +49,11 @@ impl Default for Settings {
             model_path:   String::new(),
             audio_device: String::new(),
             cleanup:      CleanupConfig::None,
+            dictionary:   vec![
+                DictionaryItem { word: "neel".into(), replacement: Some("NEEL".into()) },
+                DictionaryItem { word: "utter".into(), replacement: Some("Utter Flow".into()) },
+                DictionaryItem { word: "btw".into(), replacement: Some("by the way".into()) },
+            ],
         }
     }
 }
@@ -56,6 +71,9 @@ pub enum CleanupConfig {
         url:   String,
         /// Model name, e.g. "llama3" or "qwen2.5".
         model: String,
+        /// Custom user prompt for AI styling
+        #[serde(default)]
+        prompt: Option<String>,
     },
 
     /// Remote Ollama instance. URL + optional bearer token stored in keychain.
@@ -65,6 +83,9 @@ pub enum CleanupConfig {
         /// keychain account name for the bearer token (if any)
         #[serde(default)]
         keychain_account: String,
+        /// Custom user prompt for AI styling
+        #[serde(default)]
+        prompt: Option<String>,
     },
 
     /// Any OpenAI-compatible endpoint. API key stored in keychain.
@@ -73,6 +94,9 @@ pub enum CleanupConfig {
         model: String,
         /// keychain account name for the API key
         keychain_account: String,
+        /// Custom user prompt for AI styling
+        #[serde(default)]
+        prompt: Option<String>,
     },
 }
 
