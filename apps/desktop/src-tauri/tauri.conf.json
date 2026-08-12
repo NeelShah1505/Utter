@@ -2,31 +2,37 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Utter",
   "version": "0.1.0",
-  "identifier": "com.utter.app",
+  "identifier": "com.utter.studio",
   "build": {
+    "beforeDevCommand": "npm run build",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../src"
   },
   "app": {
-    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
         "title": "Utter",
         "width": 400,
         "height": 600,
-        "resizable": true,
+        "resizable": false,
         "fullscreen": false,
         "visible": false,
-        "decorations": true,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
         "center": true
       },
       {
         "label": "settings",
-        "title": "Utter Settings",
+        "title": "Utter Studio / Flow",
         "url": "settings.html",
-        "width": 560,
-        "height": 640,
-        "resizable": false,
+        "width": 960,
+        "height": 680,
+        "resizable": true,
         "visible": false,
         "decorations": true,
         "center": true
@@ -35,8 +41,8 @@
     "trayIcon": {
       "iconPath": "icons/tray-icon.png",
       "iconAsTemplate": true,
-      "menuOnLeftClick": false,
-      "tooltip": "Utter — Click to open settings"
+      "menuOnLeftClick": true,
+      "tooltip": "Utter Studio — Click for Controls"
     },
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
