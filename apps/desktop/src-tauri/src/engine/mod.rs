@@ -63,13 +63,15 @@ pub trait AsrEngine: Send + Sync {
         Self: Sized;
 
     /// Begin a new transcription session. Returns an opaque session handle.
-    fn start_session(&self) -> Result<SessionId, EngineError>;
+    /// `on_partial` is called asynchronously with (transcript, is_final) whenever a new result is available.
+    fn start_session(
+        &self, 
+        sample_rate: u32,
+        on_partial: Box<dyn Fn(String, bool) + Send + 'static>,
+    ) -> Result<SessionId, EngineError>;
 
-    /// Feed a chunk of PCM audio (16 kHz, mono, f32).
+    /// Feed a chunk of PCM audio (f32 format).
     fn feed_audio(&self, session: SessionId, samples: &[f32]) -> Result<(), EngineError>;
-
-    /// Poll for a new partial transcript. Non-blocking. Returns None if not ready.
-    fn poll_partial(&self, session: SessionId) -> Result<Option<String>, EngineError>;
 
     /// End the session and flush the final transcript.
     fn end_session(&self, session: SessionId) -> Result<String, EngineError>;
