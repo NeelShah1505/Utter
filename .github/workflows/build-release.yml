@@ -50,16 +50,24 @@ jobs:
         with:
           targets: aarch64-apple-darwin
 
-      # TODO (Phase 1): Replace this stub with the real Tauri build command:
-      #   cargo install tauri-cli --version "^2"
-      #   cargo tauri build --target aarch64-apple-darwin
-      - name: Build (stub — Phase 0)
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ./apps/desktop
+        run: npm install
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0.0"
+
+      - name: Build macOS Apple Silicon
+        working-directory: ./apps/desktop
         run: |
-          echo "TODO: cargo tauri build --target aarch64-apple-darwin"
-          # Create a placeholder file so artifact upload succeeds in Phase 0.
-          # This placeholder will be replaced by the real .dmg in Phase 1.
-          mkdir -p dist
-          echo "placeholder - not a real installer" > dist/app-macos-arm64.dmg
+          cargo tauri build --target aarch64-apple-darwin
+          mkdir -p ../../dist
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg ../../dist/app-macos-arm64.dmg
 
       # Rename to canonical filename (idempotent once real build is in place)
       - name: Stage artifact
