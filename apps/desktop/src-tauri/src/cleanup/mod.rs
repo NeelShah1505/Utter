@@ -63,20 +63,21 @@ pub fn build_backend(config: &CleanupConfig) -> Box<dyn CleanupBackend> {
         CleanupConfig::None => {
             Box::new(noop::NoOpCleanup)
         }
-        CleanupConfig::LocalOllama { url, model } => {
-            Box::new(ollama::OllamaBackend::new(url.clone(), model.clone(), None))
+        CleanupConfig::LocalOllama { url, model, prompt } => {
+            Box::new(ollama::OllamaBackend::new(url.clone(), model.clone(), None, prompt.clone()))
         }
-        CleanupConfig::RemoteOllama { url, model, keychain_account } => {
+        CleanupConfig::RemoteOllama { url, model, keychain_account, prompt } => {
             // Load bearer token from keychain — never stored in config file.
             let token = load_keychain_secret(keychain_account);
-            Box::new(ollama::OllamaBackend::new(url.clone(), model.clone(), token))
+            Box::new(ollama::OllamaBackend::new(url.clone(), model.clone(), token, prompt.clone()))
         }
-        CleanupConfig::OpenAiCompat { url, model, keychain_account } => {
+        CleanupConfig::OpenAiCompat { url, model, keychain_account, prompt } => {
             let api_key = load_keychain_secret(keychain_account).unwrap_or_default();
             Box::new(openai_compat::OpenAiCompatBackend::new(
                 url.clone(),
                 model.clone(),
                 api_key,
+                prompt.clone(),
             ))
         }
     }

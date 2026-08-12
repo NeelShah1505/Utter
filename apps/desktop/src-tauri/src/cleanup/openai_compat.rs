@@ -27,16 +27,17 @@ pub struct OpenAiCompatBackend {
     url:     String,
     model:   String,
     api_key: String,
+    prompt:  Option<String>,
 }
 
 impl OpenAiCompatBackend {
-    pub fn new(url: String, model: String, api_key: String) -> Self {
+    pub fn new(url: String, model: String, api_key: String, prompt: Option<String>) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(60)) // cloud APIs can be slower
             .https_only(true) // enforce HTTPS — never send API keys over plain HTTP
             .build()
             .expect("HTTP client init failed");
-        Self { client, url, model, api_key }
+        Self { client, url, model, api_key, prompt }
     }
 }
 
@@ -72,10 +73,15 @@ impl CleanupBackend for OpenAiCompatBackend {
     async fn refine(&self, raw: &str) -> Result<String, CleanupError> {
         let endpoint = format!("{}/v1/chat/completions", self.url.trim_end_matches('/'));
 
+        let system_msg = match &self.prompt {
+            Some(p) if !p.trim().is_empty() => p.as_str(),
+            _ => SYSTEM_PROMPT,
+        };
+
         let body = ChatRequest {
             model:    &self.model,
             messages: vec![
-                Message { role: "system", content: SYSTEM_PROMPT },
+                Message { role: "system", content: system_msg },
                 Message { role: "user",   content: raw },
             ],
         };
