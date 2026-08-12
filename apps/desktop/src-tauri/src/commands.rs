@@ -8,7 +8,7 @@
 
 use crate::{
     cleanup,
-    engine::{AsrEngine, EngineConfig, PlatformEngine},
+    engine::{AsrEngine, EngineConfig, EngineError, PlatformEngine},
     error::{AppError, Result},
     insert,
     mic,
@@ -17,7 +17,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 // ---------------------------------------------------------------------------
 // Dictation control
@@ -52,7 +52,36 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         }
     };
 
-    let session_id = engine.start_session().map_err(AppError::from)?;
+    log::info!("Finding audio device...");
+    let device = mic::find_device(&settings.audio_device)?;
+    log::info!("Found device. Getting preferred config...");
+    let mic_config = mic::preferred_config(&device)?;
+    let sample_rate = mic_config.sample_rate().0;
+    log::info!("Mic config: {} Hz", sample_rate);
+
+    let last_streamed_arc = {
+        let locked = state.lock().expect("state poisoned");
+        locked.last_streamed.lock().expect("last_streamed poisoned").clear();
+        locked.last_streamed.clone()
+    };
+
+    let app_handle = app.clone();
+    let stream_buffer = last_streamed_arc.clone();
+    let on_partial = Box::new(move |transcript: String, is_final: bool| {
+        log::info!("Live partial: {}", transcript);
+        let _ = app_handle.emit("transcript_partial", serde_json::json!({ "text": transcript, "is_final": is_final }));
+        
+        // Real-time live cursor insertion!
+        let mut old = stream_buffer.lock().expect("stream buffer poisoned");
+        if !transcript.is_empty() && &*old != &transcript {
+            let _ = crate::insert::insert_delta(&old, &transcript);
+            *old = transcript;
+        }
+    });
+
+    log::info!("Starting ASR session...");
+    let session_id = engine.start_session(sample_rate, on_partial).map_err(AppError::from)?;
+    log::info!("ASR session started! ID: {session_id}");
 
     let audio_buffer = {
         let locked = state.lock().expect("state poisoned");
@@ -60,12 +89,23 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         locked.audio_buffer.clone()
     };
 
-    let device = mic::find_device(&settings.audio_device)?;
-    let mic_config = mic::preferred_config(&device)?;
-
+    let engine_for_capture = engine.clone();
+    let mut engine_buf = Vec::with_capacity(8192);
+    let mut received_first_chunk = false;
     let capture = mic::CaptureHandle::start(&device, mic_config, move |chunk| {
+        if !received_first_chunk {
+            log::info!("Microphone successfully sent first audio chunk! (len: {})", chunk.len());
+            received_first_chunk = true;
+        }
         let mut buf = audio_buffer.lock().expect("audio lock poisoned");
         buf.extend_from_slice(chunk);
+        
+        // Accumulate into ~185ms chunks before feeding to Swift to force partials
+        engine_buf.extend_from_slice(chunk);
+        if engine_buf.len() >= 8192 {
+            let _ = engine_for_capture.feed_audio(session_id, &engine_buf);
+            engine_buf.clear();
+        }
     })?;
 
     {
@@ -75,7 +115,20 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         locked.capture_handle = Some(capture);
     }
 
+    log::info!("Emitting state_change 'Listening' to frontend...");
     let _ = app.emit("state_change", serde_json::json!({ "status": "Listening" }));
+    
+    // Show the main bubble window without stealing focus from user's active editor!
+    if let Some(window) = app.get_webview_window("main") {
+        log::info!("Showing bubble window...");
+        let _ = window.show();
+        // Explicitly do not call window.set_focus() so cursor remains in Word/Browser/IDE
+    } else {
+        log::error!("CRITICAL: 'main' window not found!");
+    }
+    
+    log::info!("start_dictation_impl completed successfully.");
+
     log::info!("start_dictation: mic open, session {session_id}");
     Ok(())
 }
@@ -98,7 +151,7 @@ pub async fn start_dictation(
 /// Called by both the IPC command and the hotkey handler.
 pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result<()> {
     // --- Grab what we need and stop the mic (brief lock) ---
-    let (engine, session_id, audio_buffer, cleanup_cfg) = {
+    let (engine, session_id, audio_buffer, cleanup_cfg, dictionary, last_streamed_arc) = {
         let mut locked = state.lock().expect("state poisoned");
 
         if locked.status != Status::Listening {
@@ -114,6 +167,8 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
             locked.session_id.take(),
             locked.audio_buffer.clone(),
             locked.settings.cleanup.clone(),
+            locked.settings.dictionary.clone(),
+            locked.last_streamed.clone(),
         )
     };
 
@@ -148,14 +203,10 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
 
     log::info!("stop_dictation: {:.1}s of audio, running ASR…", samples.len() as f32 / 16000.0);
 
-    engine.feed_audio(session_id, &samples).map_err(|e| {
-        let err = AppError::from(e);
-        let mut locked = state.lock().expect("state poisoned");
-        locked.status = Status::Error(err.to_string());
-        err
-    })?;
-
-    let raw = engine.end_session(session_id).map_err(|e| {
+    let engine_clone = engine.clone();
+    let raw = tokio::task::spawn_blocking(move || {
+        engine_clone.end_session(session_id)
+    }).await.unwrap_or_else(|e| Err(EngineError::Session(format!("spawn_blocking failed: {}", e)))).map_err(|e| {
         let err = AppError::from(e);
         let mut locked = state.lock().expect("state poisoned");
         locked.status = Status::Error(err.to_string());
@@ -164,28 +215,49 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
 
     log::info!("stop_dictation: raw = {:?}", raw);
 
+    // Snapshot what was actually typed to the cursor during real-time streaming
+    let streamed_str = last_streamed_arc.lock().expect("stream poisoned").clone();
+
     // --- Optional cleanup pass ---
     let backend = cleanup::build_backend(&cleanup_cfg);
-    let final_text = if raw.is_empty() {
+    let mut final_text = if raw.is_empty() {
         String::new()
     } else {
         backend.refine(&raw).await.map_err(|e| {
             let err = AppError::from(e);
             log::warn!("cleanup failed: {err} — using raw transcript");
-            // Don't fail — use raw transcript instead
             err
         })
         .unwrap_or(raw.clone())
     };
 
+    // --- Apply custom dictionary rules ---
+    for item in &dictionary {
+        if let Some(ref rep) = item.replacement {
+            if !rep.is_empty() && !item.word.is_empty() {
+                final_text = final_text.replace(&item.word, rep);
+                final_text = final_text.replace(&item.word.to_lowercase(), rep);
+                let mut chars = item.word.chars();
+                if let Some(first) = chars.next() {
+                    let cap_word = format!("{}{}", first.to_uppercase(), chars.as_str());
+                    final_text = final_text.replace(&cap_word, rep);
+                }
+            }
+        }
+    }
+
     log::info!("stop_dictation: final = {:?}", final_text);
 
-    // --- Insert text into focused app ---
+    // --- Reconcile streamed text with final cleaned text ---
     if !final_text.is_empty() {
-        if let Err(e) = insert::insert_text(&final_text) {
-            log::warn!("insert_text failed: {e} — transcript available in event");
-            // Don't fail — the user still gets the transcript via the event
+        if let Err(e) = insert::insert_delta(&streamed_str, &final_text) {
+            log::warn!("insert_delta failed: {e} — falling back to standard insert");
+            if streamed_str.is_empty() {
+                let _ = insert::insert_text(&final_text);
+            }
         }
+    } else if !streamed_str.is_empty() {
+        let _ = insert::insert_delta(&streamed_str, "");
     }
 
     // --- Emit final transcript event (UI shows it even if insert fails) ---
@@ -198,8 +270,18 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
     {
         let mut locked = state.lock().expect("state poisoned");
         locked.status = Status::Idle;
+        locked.last_streamed.lock().expect("stream poisoned").clear();
     }
     let _ = app.emit("state_change", serde_json::json!({ "status": "Idle" }));
+
+    // Hide the window after a short delay so the user can see the final text
+    // The front-end handles its own delay for the CSS transition, but we also hide the Tauri window.
+    if let Some(window) = app.get_webview_window("main") {
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            let _ = window.hide();
+        });
+    }
 
     Ok(())
 }
@@ -233,16 +315,36 @@ pub fn get_settings(state: State<'_, SharedState>) -> Settings {
 
 #[tauri::command]
 pub fn set_settings(
+    app: tauri::AppHandle,
     state: State<'_, SharedState>,
     new_settings: Settings,
 ) -> Result<()> {
     settings::save(&new_settings)?;
+    
+    // Unregister old hotkeys and register the new one
+    let _ = crate::hotkey::unregister_all(&app);
+    if let Err(e) = crate::hotkey::register(&app, state.inner().clone(), &new_settings.hotkey) {
+        log::warn!("Failed to re-register hotkey: {e}");
+    }
+
     let mut locked = state.lock().expect("state poisoned");
     locked.settings = new_settings;
     // Reset engine so it re-initialises with the new model path on next dictation
     locked.engine = None;
-    log::info!("settings updated via IPC");
+    log::info!("settings updated via IPC (and hotkey re-registered)");
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_keychain_secret(account: String, secret: String) -> Result<()> {
+    crate::cleanup::store_keychain_secret(&account, &secret)
+        .map_err(|e| crate::error::AppError::Internal(format!("keychain write: {e}")))
+}
+
+#[tauri::command]
+pub fn delete_keychain_secret(account: String) -> Result<()> {
+    crate::cleanup::delete_keychain_secret(&account)
+        .map_err(|e| crate::error::AppError::Internal(format!("keychain delete: {e}")))
 }
 
 // ---------------------------------------------------------------------------
@@ -333,4 +435,14 @@ pub struct LogEntry {
 pub fn get_logs() -> Vec<LogEntry> {
     // TODO (Phase 5): ring-buffer log storage
     vec![]
+}
+
+#[tauri::command]
+pub fn check_accessibility() -> bool {
+    insert::is_trusted()
+}
+
+#[tauri::command]
+pub fn request_accessibility() -> bool {
+    insert::request_permission()
 }
