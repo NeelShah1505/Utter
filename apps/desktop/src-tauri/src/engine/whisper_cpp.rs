@@ -41,21 +41,17 @@ impl AsrEngine for WhisperCppEngine {
         Ok(Self { _model_path: _config.model_path.clone() })
     }
 
-    fn start_session(&self) -> Result<SessionId, EngineError> {
-        Err(EngineError::NotImplemented(
-            "WhisperCppEngine::start_session — Phase 3".into(),
-        ))
+    fn start_session(
+        &self, 
+        _sample_rate: u32,
+        _on_partial: Box<dyn Fn(String, bool) + Send + 'static>
+    ) -> Result<SessionId, EngineError> {
+        Ok(1)
     }
 
     fn feed_audio(&self, _session: SessionId, _samples: &[f32]) -> Result<(), EngineError> {
         Err(EngineError::NotImplemented(
             "WhisperCppEngine::feed_audio — Phase 3".into(),
-        ))
-    }
-
-    fn poll_partial(&self, _session: SessionId) -> Result<Option<String>, EngineError> {
-        Err(EngineError::NotImplemented(
-            "WhisperCppEngine::poll_partial — Phase 3".into(),
         ))
     }
 
