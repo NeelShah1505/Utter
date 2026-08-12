@@ -3,156 +3,431 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Utter Settings</title>
+  <title>Utter Studio & Flow Dashboard</title>
   <link rel="stylesheet" href="assets/settings.css">
 </head>
 <body>
-
-  <header class="settings-header">
-    <h1>Utter Settings</h1>
-    <p class="version" id="app-version"></p>
-  </header>
-
-  <main class="settings-main">
-
-    <!-- === Hotkey === -->
-    <section class="settings-section" aria-labelledby="sect-hotkey">
-      <h2 id="sect-hotkey">Hotkey</h2>
-      <div class="field-row">
-        <label for="hotkey-input">Global dictation hotkey</label>
-        <input
-          type="text"
-          id="hotkey-input"
-          placeholder="CmdOrCtrl+Shift+D"
-          autocomplete="off"
-          spellcheck="false"
-        >
-      </div>
-      <p class="field-hint">
-        Click the field and press your desired key combination. Changes take effect immediately.
-      </p>
-    </section>
-
-    <!-- === Audio Input === -->
-    <section class="settings-section" aria-labelledby="sect-audio">
-      <h2 id="sect-audio">Microphone</h2>
-      <div class="field-row">
-        <label for="audio-device-select">Input device</label>
-        <select id="audio-device-select">
-          <option value="">System default</option>
-          <!-- Populated by JS -->
-        </select>
-      </div>
-    </section>
-
-    <!-- === Model === -->
-    <section class="settings-section" aria-labelledby="sect-model">
-      <h2 id="sect-model">ASR Model</h2>
-      <div class="field-row">
-        <label for="model-select">Model file</label>
-        <select id="model-select">
-          <option value="">Bundled default</option>
-          <!-- Populated by JS -->
-        </select>
-      </div>
-      <p class="field-hint">
-        Place <code>.gguf</code> or <code>.bin</code> model files in
-        <code id="models-dir-path">~/Library/Application Support/Utter/models/</code>
-      </p>
-    </section>
-
-    <!-- === Cleanup Backend === -->
-    <section class="settings-section" aria-labelledby="sect-cleanup">
-      <h2 id="sect-cleanup">AI Cleanup <span class="badge-optional">Optional</span></h2>
-      <p class="section-desc">
-        After transcription, optionally route the text through an AI model to fix
-        grammar and remove filler words. Off by default. Your transcript is sent
-        only to the endpoint you configure here.
-      </p>
-
-      <div class="field-row">
-        <label for="cleanup-type">Backend</label>
-        <select id="cleanup-type">
-          <option value="None">None (default)</option>
-          <option value="LocalOllama">Local Ollama</option>
-          <option value="RemoteOllama">Remote Ollama</option>
-          <option value="OpenAiCompat">OpenAI-compatible API</option>
-        </select>
-      </div>
-
-      <!-- LocalOllama fields -->
-      <div class="cleanup-fields" id="fields-LocalOllama" hidden>
-        <div class="field-row">
-          <label for="ollama-local-url">Ollama URL</label>
-          <input type="url" id="ollama-local-url" placeholder="http://localhost:11434" value="http://localhost:11434">
-        </div>
-        <div class="field-row">
-          <label for="ollama-local-model">Model</label>
-          <input type="text" id="ollama-local-model" placeholder="llama3">
+  <div class="app-shell">
+    
+    <!-- === Sidebar Navigation === -->
+    <aside class="app-sidebar">
+      <div class="brand-header">
+        <div class="brand-logo">
+          <svg class="wave-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+          </svg>
+          <span class="brand-title">Utter Studio</span>
         </div>
       </div>
 
-      <!-- RemoteOllama fields -->
-      <div class="cleanup-fields" id="fields-RemoteOllama" hidden>
-        <div class="field-row">
-          <label for="ollama-remote-url">Ollama URL</label>
-          <input type="url" id="ollama-remote-url" placeholder="https://your-server.example.com">
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="home">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span> <span class="nav-label">Home</span>
+        </button>
+        <button class="nav-item" data-tab="dictionary">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span> <span class="nav-label">Dictionary</span>
+        </button>
+        <button class="nav-item" data-tab="snippets">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span> <span class="nav-label">Snippets & Style</span>
+        </button>
+        <button class="nav-item" data-tab="ai">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg></span> <span class="nav-label">AI & Models</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span> <span class="nav-label">Settings</span>
+        </button>
+      </nav>
+
+      </nav>
+    </aside>
+
+    <!-- === Main Content Views === -->
+    <main class="app-main-content">
+      
+      <!-- 🏠 HOME DASHBOARD TAB -->
+      <section id="view-home" class="view-panel active">
+        <header class="view-header">
+          <h1 class="welcome-heading">Welcome back, NEEL 👋</h1>
+          <p class="welcome-subheading">Your offline voice dictation engine is ready. Hold or click your hotkey anywhere in macOS to speak.</p>
+        </header>
+
+        <!-- Hero Banner -->
+        <div class="hero-banner">
+          <div class="hero-content">
+            <span class="hero-tag">PERSONALIZED RECOGNITION</span>
+            <h2>Make Utter sound like you</h2>
+            <p>Set up writing styles, custom abbreviations, and industry vocabulary for seamless real-time accuracy across all desktop apps.</p>
+            <button class="btn-hero" id="btn-explore-dict">Open Dictionary &rarr;</button>
+          </div>
+          <div class="hero-graphic">
+            <div class="pulse-ring"></div>
+            <div class="mic-icon-large">🎙️</div>
+          </div>
         </div>
-        <div class="field-row">
-          <label for="ollama-remote-model">Model</label>
-          <input type="text" id="ollama-remote-model" placeholder="llama3">
+
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Words Dictated</span>
+            <strong class="stat-value" id="stat-words">0</strong>
+            <span class="stat-trend trend-neutral">Real-time counter active</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Average Speed</span>
+            <strong class="stat-value" id="stat-wpm">0 <small>wpm</small></strong>
+            <span class="stat-trend trend-neutral">3x faster than typing</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Active Streak</span>
+            <strong class="stat-value" id="stat-streak">0 <small>days</small></strong>
+            <span class="stat-trend trend-neutral">Speak today to begin streak</span>
+          </div>
         </div>
-        <div class="field-row">
-          <label for="ollama-remote-token">Bearer token</label>
-          <input type="password" id="ollama-remote-token" placeholder="Stored in OS keychain — leave blank to keep existing">
-          <p class="field-hint">Stored in your OS keychain. Never written to disk.</p>
+
+        <!-- Activity Feed -->
+        <div class="activity-section">
+          <div class="section-top-bar">
+            <h3>Recent Transcriptions</h3>
+            <button class="btn-text-sm" id="btn-clear-history">Clear history</button>
+          </div>
+          <div id="history-list" class="history-list">
+            <div id="history-empty" class="empty-state-card">
+              <div class="empty-icon">🎙️</div>
+              <h4>No dictations yet</h4>
+              <p>Trigger dictation with Cmd+Shift+D anywhere on your Mac. Your real speech-to-text logs will appear here instantly with quick copy controls.</p>
+            </div>
+          </div>
         </div>
+      </section>
+
+      <!-- 📖 DICTIONARY TAB -->
+      <section id="view-dictionary" class="view-panel">
+        <header class="view-header flex-header">
+          <div>
+            <h1 class="page-title">Dictionary</h1>
+            <p class="page-subtitle">Add proper nouns, personal jargon, and automatic word replacement acronyms.</p>
+          </div>
+          <button class="btn-primary" id="btn-show-add-modal">+ Add new word</button>
+        </header>
+
+        <!-- Dictionary Hero Info -->
+        <div class="dict-info-card">
+          <div class="dict-info-text">
+            <h4>Utter speaks the way you speak</h4>
+            <p>Whenever Utter transcribes your speech, it automatically applies these vocabulary rules before inputting text at your cursor.</p>
+          </div>
+          <div class="chip-row">
+            <span class="dict-chip">ReactJS</span>
+            <span class="dict-chip">Utter Studio</span>
+            <span class="dict-chip">btw &rarr; by the way</span>
+            <span class="dict-chip">wip &rarr; work in progress</span>
+          </div>
+        </div>
+
+        <!-- Filter & Search Bar -->
+        <div class="table-toolbar">
+          <div class="filter-tabs">
+            <button class="filter-btn active" data-filter="all">All Words</button>
+            <button class="filter-btn" data-filter="replacements">Abbreviations & Rules</button>
+          </div>
+          <div class="search-box">
+            <input type="text" id="dict-search-input" placeholder="Search dictionary...">
+          </div>
+        </div>
+
+        <!-- Add Dictionary Inline Box (Hidden by Default) -->
+        <div id="add-dict-box" class="add-dict-card" hidden>
+          <h4>New Dictionary Item</h4>
+          <div class="form-row-grid">
+            <div class="field-col">
+              <label>Spoken Word / Acronym</label>
+              <input type="text" id="new-word-input" placeholder="e.g. btw or neel">
+            </div>
+            <div class="field-col">
+              <label>Replace With (Optional)</label>
+              <input type="text" id="new-replace-input" placeholder="e.g. by the way or ReactJS">
+            </div>
+            <div class="field-col btn-col">
+              <button class="btn-primary" id="btn-save-word">Add Rule</button>
+              <button class="btn-secondary" id="btn-cancel-word">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dictionary Table -->
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Spoken Term / Word</th>
+                <th>Replacement Output</th>
+                <th class="col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dictionary-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ⚡ SNIPPETS & STYLES TAB -->
+      <section id="view-snippets" class="view-panel">
+        <header class="view-header">
+          <h1 class="page-title">Writing Styles & Transforms</h1>
+          <p class="page-subtitle">Pre-configured styling transformations when AI Cleanup is activated.</p>
+        </header>
+
+        <div id="ai-status-notice" class="ai-notice-card" hidden>
+          <div class="ai-notice-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          </div>
+          <div class="ai-notice-content">
+            <h4>AI Cleanup Engine Disabled</h4>
+            <p>Raw Transcription (None) is active. Select an AI engine in <strong>AI & Models</strong> to enable automatic writing transformations.</p>
+          </div>
+          <button type="button" class="btn-goto-ai" id="btn-goto-ai-tab">Configure AI &rarr;</button>
+        </div>
+
+        <div class="styles-grid">
+          <div class="style-card" data-style="email">
+            <div class="style-header">
+              <span class="style-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg></span>
+              <h4>Professional Email</h4>
+              <span class="badge-status">Optional</span>
+            </div>
+            <p>Formats conversational explanations into polished, corporate-ready emails with polite greetings and sign-offs.</p>
+            <div class="style-example">
+              <small><strong>Spoken:</strong> "tell sam we finished the deploy and everything looks stable"</small>
+              <small><strong>Output:</strong> "Hi Sam, I wanted to let you know that we have successfully finished the deployment, and all systems remain completely stable."</small>
+            </div>
+          </div>
+
+          <div class="style-card" data-style="chat">
+            <div class="style-header">
+              <span class="style-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+              <h4>Casual Chat & Slack</h4>
+              <span class="badge-status">Optional</span>
+            </div>
+            <p>Direct, concise formatting without fluff or formal salutations. Optimal for messaging team members.</p>
+          </div>
+
+          <div class="style-card" data-style="developer">
+            <div class="style-header">
+              <span class="style-icon"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span>
+              <h4>Developer & Technical Lingo</h4>
+              <span class="badge-status">Optional</span>
+            </div>
+            <p>Preserves CamelCase, snake_case, variable names, programming languages (Rust, Swift, TypeScript), and terminal CLI syntax.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 🤖 AI & MODELS TAB -->
+      <section id="view-ai" class="view-panel">
+        <header class="view-header">
+          <h1 class="page-title">AI Integration & Engines</h1>
+          <p class="page-subtitle">Configure external LLMs, personal API keys, or local offline Ollama models to clean up stutter and apply dictionary grammar.</p>
+        </header>
+
+        <div class="ai-engine-selector">
+          <h3>Choose your AI Cleanup Engine</h3>
+          <div class="engine-cards-group">
+            
+            <label class="engine-card">
+              <input type="radio" name="engine-type" value="None" checked>
+              <div class="engine-box">
+                <span class="engine-emoji"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span>
+                <strong>Raw Transcription (None)</strong>
+                <p>Zero latency, 100% offline acoustic speech-to-text. Directly types your voice without LLM preprocessing.</p>
+              </div>
+            </label>
+
+            <label class="engine-card">
+              <input type="radio" name="engine-type" value="LocalOllama">
+              <div class="engine-box">
+                <span class="engine-emoji"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span>
+                <strong>Local Ollama (Offline AI)</strong>
+                <p>Runs open-source LLMs directly on your device via http://localhost:11434. Total privacy and local grammar cleanup.</p>
+              </div>
+            </label>
+
+            <label class="engine-card">
+              <input type="radio" name="engine-type" value="OpenAiCompat">
+              <div class="engine-box">
+                <span class="engine-emoji"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></span>
+                <strong>Cloud AI API / Own Key</strong>
+                <p>Connect any OpenAI, Anthropic Claude, Groq, or custom LLM endpoint using your personal API key.</p>
+              </div>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- Local Ollama Configuration -->
+        <div id="box-LocalOllama" class="engine-config-panel" hidden>
+          <div class="panel-heading">
+            <h4 class="heading-with-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+              Local Ollama Configuration
+            </h4>
+            <a href="https://ollama.com" target="_blank" class="link-help">Install Ollama &rarr;</a>
+          </div>
+          <div class="config-grid">
+            <div class="field-item">
+              <label for="ollama-local-url">Ollama Endpoint URL</label>
+              <input type="url" id="ollama-local-url" value="http://localhost:11434" placeholder="http://localhost:11434">
+            </div>
+            <div class="field-item">
+              <label for="ollama-local-model">Model Name</label>
+              <input type="text" id="ollama-local-model" placeholder="e.g. llama3, mistral, deepseek-r1, qwen2.5" value="llama3">
+            </div>
+          </div>
+        </div>
+
+        <!-- Cloud API Key Configuration -->
+        <div id="box-OpenAiCompat" class="engine-config-panel" hidden>
+          <div class="panel-heading">
+            <h4 class="heading-with-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg>
+              Custom Cloud AI Provider
+            </h4>
+            <span class="badge-secure"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: middle; margin-right: 4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> API Key Stored securely in OS Keychain</span>
+          </div>
+          <div class="provider-presets">
+            <button type="button" class="btn-preset" data-url="https://api.openai.com" data-model="gpt-4o-mini">OpenAI GPT-4o</button>
+            <button type="button" class="btn-preset" data-url="https://api.groq.com/openai/v1" data-model="llama-3.3-70b-versatile">Groq Lightning</button>
+            <button type="button" class="btn-preset" data-url="https://api.anthropic.com/v1" data-model="claude-3-5-sonnet-20241022">Anthropic Claude</button>
+          </div>
+          <div class="config-grid">
+            <div class="field-item">
+              <label for="oai-url">API Endpoint URL</label>
+              <input type="url" id="oai-url" placeholder="https://api.openai.com">
+            </div>
+            <div class="field-item">
+              <label for="oai-model">Model Identifier</label>
+              <input type="text" id="oai-model" placeholder="e.g. gpt-4o-mini or llama-3.3-70b-versatile">
+            </div>
+            <div class="field-item full-width">
+              <label for="oai-key">Personal API Key</label>
+              <input type="password" id="oai-key" placeholder="sk-... (Leave unchanged to keep securely vaulted key)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom AI Writing Style Prompt -->
+        <div id="box-CustomPrompt" class="engine-config-panel" style="margin-top: 24px;">
+          <div class="panel-heading">
+            <h4 class="heading-with-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              Custom AI Writing Style (Prompt)
+            </h4>
+            <span class="badge-status">Optional</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; margin-top: -12px;">
+            Define exactly how the AI should format your spoken words. For example: <br/>
+            <em>"Translate to professional Spanish"</em> or <em>"Fix my grammar and format as markdown bullet points."</em>
+          </p>
+          <div class="field-item full-width">
+            <textarea id="ai-custom-prompt" rows="3" placeholder="Leave empty to use the default grammar-fixing style." style="width: 100%; border-radius: 8px; padding: 12px; border: 1px solid var(--border); background: var(--surface-hover); color: var(--text); font-family: var(--font); resize: vertical;"></textarea>
+          </div>
+        </div>
+
+        <!-- Connection Tester -->
+        <div class="test-action-bar" id="test-bar">
+          <button type="button" id="cleanup-test-btn" class="btn-test"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: middle; margin-right: 6px;"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> Test AI Connection & Latency</button>
+          <span id="cleanup-test-result" class="test-result-msg"></span>
+        </div>
+      </section>
+
+      <!-- ⚙️ GENERAL SETTINGS TAB -->
+      <section id="view-settings" class="view-panel">
+        <header class="view-header">
+          <h1 class="page-title">General Settings</h1>
+          <p class="page-subtitle">Configure audio devices, system keyboard triggers, and hardware options.</p>
+        </header>
+
+        <div class="settings-list-group">
+          
+          <div class="setting-item-card">
+            <div class="setting-desc">
+              <h4>macOS Accessibility Permission</h4>
+              <p>Required for Utter to insert transcribed text directly into active apps (Cursor, Xcode, Chrome, Slack, etc.).</p>
+            </div>
+            <div class="setting-control" style="display: flex; align-items: center; gap: 12px;">
+              <span id="accessibility-badge" class="badge-status">Checking...</span>
+              <button type="button" id="btn-grant-accessibility" class="btn-action-sm" style="display: flex; align-items: center; gap: 6px; background: var(--accent); color: var(--accent-fg); border: none; font-weight: 600; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+                <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Open System Settings
+              </button>
+            </div>
+          <div class="setting-item-card">
+            <div class="setting-desc">
+              <h4>Global Dictation Hotkey</h4>
+              <p>Trigger voice dictation from any active app in macOS without opening this dashboard.</p>
+            </div>
+            <div class="setting-control">
+              <input type="text" id="hotkey-input" class="input-hotkey" value="CmdOrCtrl+Shift+D" placeholder="CmdOrCtrl+Shift+D">
+            </div>
+          </div>
+
+          <div class="setting-item-card">
+            <div class="setting-desc">
+              <h4>Microphone Input Device</h4>
+              <p>Select which hardware microphone to record dictation audio from.</p>
+            </div>
+            <div class="setting-control">
+              <select id="audio-device-select" class="select-control">
+                <option value="">System Default Microphone</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item-card">
+            <div class="setting-desc">
+              <h4>Acoustic ASR Model File</h4>
+              <p>Select customized local offline whisper models located in your App Support folder.</p>
+            </div>
+            <div class="setting-control">
+              <select id="model-select" class="select-control">
+                <option value="">Bundled High-Speed Apple Speech / Default</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item-card">
+            <div class="setting-desc">
+              <h4>Real-time Cursor Insertion</h4>
+              <p>Types text live at cursor position without overriding your macOS system clipboard.</p>
+            </div>
+            <div class="setting-control">
+              <span class="badge-active-green">✓ Enabled (Enigo Synthesizer)</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- About & Footer info -->
+        <footer class="about-section">
+          <p>Utter v1.0 • Open Source Voice Assistant • Fully Offline by Default • No Telemetry</p>
+        </footer>
+      </section>
+
+    </main>
+
+    <!-- === Sticky Save Toolbar === -->
+    <div class="sticky-save-toolbar">
+      <span class="save-status-msg" id="save-status"></span>
+      <div class="toolbar-actions">
+        <button type="button" id="cancel-btn" class="btn-secondary">Discard Changes</button>
+        <button type="button" id="save-btn" class="btn-primary-glow">Save Settings</button>
       </div>
+    </div>
 
-      <!-- OpenAiCompat fields -->
-      <div class="cleanup-fields" id="fields-OpenAiCompat" hidden>
-        <div class="field-row">
-          <label for="oai-url">API endpoint</label>
-          <input type="url" id="oai-url" placeholder="https://api.openai.com">
-        </div>
-        <div class="field-row">
-          <label for="oai-model">Model</label>
-          <input type="text" id="oai-model" placeholder="gpt-4o-mini">
-        </div>
-        <div class="field-row">
-          <label for="oai-key">API key</label>
-          <input type="password" id="oai-key" placeholder="sk-… (stored in OS keychain)">
-          <p class="field-hint">Stored in your OS keychain. Never written to disk.</p>
-        </div>
-      </div>
+  </div>
 
-      <!-- Test button -->
-      <div class="cleanup-test-row" id="cleanup-test-row" hidden>
-        <button type="button" id="cleanup-test-btn">Test connection</button>
-        <span class="test-result" id="cleanup-test-result"></span>
-      </div>
-    </section>
-
-    <!-- === About === -->
-    <section class="settings-section" aria-labelledby="sect-about">
-      <h2 id="sect-about">About</h2>
-      <dl class="about-list">
-        <dt>Version</dt>    <dd id="about-version">—</dd>
-        <dt>License</dt>    <dd>MIT</dd>
-        <dt>Source</dt>     <dd><a href="https://github.com/NeelShah1505/Utter" id="source-link" target="_blank" rel="noopener">github.com/NeelShah1505/Utter</a></dd>
-        <dt>Privacy</dt>    <dd>No telemetry. No crash reporting. No network calls (unless you enable cleanup).</dd>
-      </dl>
-    </section>
-
-  </main>
-
-  <!-- Save / Cancel toolbar -->
-  <footer class="settings-footer">
-    <button type="button" id="save-btn" class="btn-primary">Save</button>
-    <button type="button" id="cancel-btn" class="btn-secondary">Cancel</button>
-    <span class="save-status" id="save-status" aria-live="polite"></span>
-  </footer>
-
-  <script type="module" src="assets/settings.js"></script>
+  <script type="module" src="assets/settings.bundle.js"></script>
 </body>
 </html>

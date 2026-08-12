@@ -1,15 +1,28 @@
-/* bubble.css — Transcript bubble styles */
+/* bubble.css — Premium Transcript bubble styles */
 
 :root {
-  --bg:       #1C1B1A;
-  --surface:  #252422;
-  --border:   #2E2D2B;
-  --text:     #F0EDE8;
-  --muted:    #9C9893;
-  --accent:   #2AB5B5;
-  --error:    #E05252;
-  --radius:   12px;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg:         transparent;
+  --surface:    rgba(250, 250, 250, 0.95); /* Nearly solid fallback */
+  --border:     rgba(0, 0, 0, 0.1);
+  --text:       #111827; /* Crisp dark font */
+  --muted:      #6B7280;
+  --accent:     #000000; /* Pure black accent */
+  --recording:  #FF3B30; /* iOS Red */
+  --error:      #FF453A;
+  --radius:     20px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface:    rgba(30, 30, 30, 0.65);
+    --border:     rgba(255, 255, 255, 0.15);
+    --text:       #F9FAFB;
+    --muted:      #9CA3AF;
+    --accent:     #FFFFFF;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,119 +32,189 @@ body {
   background: transparent;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  padding: 12px;
+  /* Allow room for shadow */
+  padding: 24px;
+  /* Ensure the body takes full height of transparent window */
+  height: 100vh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .bubble {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
-  min-height: 80px;
+  padding: 20px 24px;
+  width: 100%;
+  max-width: 360px;
+  min-height: 90px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  gap: 12px;
+  
+  /* Extreme Glassmorphism */
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  box-shadow: var(--shadow);
+  
+  /* Smooth Entry/Exit */
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+              transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Bubble is shown when any state class is present except idle */
+body:not(.state-idle) .bubble {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 /* Status bar */
 .bubble__status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
+.status-indicator {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--muted);
   flex-shrink: 0;
-  transition: background 200ms ease;
+  position: relative;
+  transition: background 300ms ease;
 }
 
-/* State: listening — pulsing teal dot */
-body.state-listening .status-dot {
+.status-indicator::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0;
+  z-index: -1;
+}
+
+/* State: listening — pulsing red mic indicator */
+body.state-listening .status-indicator {
+  background: var(--recording);
+}
+
+body.state-listening .status-indicator::after {
+  animation: ripple 1.5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+body.state-transcribing .status-indicator {
   background: var(--accent);
-  animation: pulse 1.2s ease-in-out infinite;
+  animation: throb 1s ease-in-out infinite alternate;
 }
 
-body.state-transcribing .status-dot {
-  background: var(--accent);
-  opacity: 0.6;
+body.state-error .status-indicator { 
+  background: var(--error); 
 }
 
-body.state-error .status-dot { background: var(--error); }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(1.3); }
+@keyframes ripple {
+  0%   { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  @keyframes pulse { 0%, 100% { opacity: 1; } }
+@keyframes throb {
+  0%   { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 .status-label {
   font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+  transition: color 300ms ease;
 }
 
-body.state-listening    .status-label { color: var(--accent); }
+body.state-listening    .status-label { color: var(--recording); }
 body.state-transcribing .status-label { color: var(--accent); }
 body.state-error        .status-label { color: var(--error); }
 
 /* Transcript text */
 .bubble__text {
-  font-size: 1rem;
-  line-height: 1.55;
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.5;
   color: var(--text);
-  min-height: 1.55em;
+  min-height: 1.5em;
   word-break: break-word;
+  letter-spacing: -0.01em;
+  /* Word fade-in effect for live transcription */
+}
+
+/* We will inject spans with class "word-appear" for partials */
+.word-appear {
+  display: inline-block;
+  animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeUp {
+  0% { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 /* Hint line */
 .bubble__hint {
   font-size: 0.75rem;
+  font-weight: 500;
   color: var(--muted);
+  margin-top: 4px;
 }
 
 .bubble__hint kbd {
-  font-family: inherit;
+  font-family: ui-monospace, "SF Mono", monospace;
   font-size: 0.75rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: rgba(120, 120, 120, 0.15);
+  border: 1px solid rgba(120, 120, 120, 0.2);
   border-radius: 4px;
-  padding: 1px 5px;
+  padding: 2px 6px;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.05);
 }
 
 /* Error box */
 .bubble__error {
-  border: 1px solid var(--error);
-  border-radius: 8px;
-  padding: 10px 14px;
-  background: rgba(224, 82, 82, 0.1);
+  margin-top: 4px;
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 69, 58, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .bubble__error p {
   font-size: 0.875rem;
   color: var(--error);
+  font-weight: 500;
 }
 
 .bubble__error button {
   align-self: flex-start;
   font-size: 0.8125rem;
-  color: var(--muted);
-  background: none;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
   border: none;
+  border-radius: 6px;
   cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
+  padding: 4px 12px;
+  transition: background 150ms ease;
+}
+
+.bubble__error button:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
