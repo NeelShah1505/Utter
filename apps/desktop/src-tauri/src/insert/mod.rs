@@ -18,12 +18,45 @@
 //   CGEvent synthetic input works in any app without touching the clipboard.
 
 use crate::error::{AppError, Result};
-use enigo::{Enigo, Keyboard, Settings as EnigoSettings};
+use enigo::{Direction, Enigo, Key, Keyboard, Settings as EnigoSettings};
+
+#[cfg(target_os = "macos")]
+pub fn is_trusted() -> bool {
+    #[link(name = "ApplicationServices", kind = "framework")]
+    extern "C" {
+        fn AXIsProcessTrusted() -> bool;
+    }
+    unsafe { AXIsProcessTrusted() }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn is_trusted() -> bool {
+    true
+}
+
+#[cfg(target_os = "macos")]
+pub fn request_permission() -> bool {
+    // Open macOS System Settings directly to Privacy & Security -> Accessibility
+    let _ = std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        .spawn();
+
+    is_trusted()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn request_permission() -> bool {
+    true
+}
 
 /// Insert `text` at the current cursor position in the focused application.
 pub fn insert_text(text: &str) -> Result<()> {
     if text.is_empty() {
         return Ok(());
+    }
+
+    if !is_trusted() {
+        log::warn!("Accessibility permissions not verified. Attempting direct enigo synthetic input anyway...");
     }
 
     let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
@@ -32,6 +65,44 @@ pub fn insert_text(text: &str) -> Result<()> {
 
     enigo.text(text).map_err(|_| AppError::InsertFailed)?;
 
-    log::debug!("insert_text: inserted {} chars", text.len());
+    log::debug!("insert_text: directly inserted {} chars via keyboard synthetic input", text.len());
     Ok(())
 }
+
+/// Real-time streaming insertion: compares `old` vs `new`, sends Backspaces for diverged characters, and types the new delta suffix.
+pub fn insert_delta(old: &str, new: &str) -> Result<()> {
+    if old == new {
+        return Ok(());
+    }
+
+    let mut prefix_chars = 0;
+    let mut old_chars = old.chars();
+    let mut new_chars = new.chars();
+    while let (Some(c1), Some(c2)) = (old_chars.next(), new_chars.next()) {
+        if c1 == c2 {
+            prefix_chars += 1;
+        } else {
+            break;
+        }
+    }
+    
+    let old_total_chars = old.chars().count();
+    let num_backspaces = old_total_chars - prefix_chars;
+    let suffix: String = new.chars().skip(prefix_chars).collect();
+
+    let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
+        AppError::Internal(format!("enigo init: {e}"))
+    })?;
+
+    for _ in 0..num_backspaces {
+        let _ = enigo.key(Key::Backspace, Direction::Click);
+    }
+
+    if !suffix.is_empty() {
+        let _ = enigo.text(&suffix);
+    }
+
+    log::debug!("insert_delta: {} backspaces, typed {} new chars", num_backspaces, suffix.len());
+    Ok(())
+}
+
