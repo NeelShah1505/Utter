@@ -41,7 +41,40 @@ pub fn request_permission() -> bool {
         .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         .spawn();
 
-    is_trusted()
+    #[link(name = "ApplicationServices", kind = "framework")]
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" {
+        fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> bool;
+        static kAXTrustedCheckOptionPrompt: *const std::ffi::c_void;
+        static kCFBooleanTrue: *const std::ffi::c_void;
+        fn CFDictionaryCreate(
+            allocator: *const std::ffi::c_void,
+            keys: *const *const std::ffi::c_void,
+            values: *const *const std::ffi::c_void,
+            numValues: isize,
+            keyCallBacks: *const std::ffi::c_void,
+            valueCallBacks: *const std::ffi::c_void,
+        ) -> *const std::ffi::c_void;
+        fn CFRelease(cf: *const std::ffi::c_void);
+    }
+
+    unsafe {
+        let keys = [kAXTrustedCheckOptionPrompt];
+        let values = [kCFBooleanTrue];
+        let dict = CFDictionaryCreate(
+            std::ptr::null(),
+            keys.as_ptr(),
+            values.as_ptr(),
+            1,
+            std::ptr::null(),
+            std::ptr::null(),
+        );
+        let trusted = AXIsProcessTrustedWithOptions(dict);
+        if !dict.is_null() {
+            CFRelease(dict);
+        }
+        trusted
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -55,8 +88,13 @@ pub fn insert_text(text: &str) -> Result<()> {
         return Ok(());
     }
 
+    // If accessibility permissions are not granted, copy to clipboard as graceful fallback
     if !is_trusted() {
-        log::warn!("Accessibility permissions not verified. Attempting direct enigo synthetic input anyway...");
+        log::warn!("Accessibility not granted. Copying final transcript to clipboard as fallback.");
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            let _ = clipboard.set_text(text);
+        }
+        return Ok(());
     }
 
     let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
@@ -72,6 +110,11 @@ pub fn insert_text(text: &str) -> Result<()> {
 /// Real-time streaming insertion: compares `old` vs `new`, sends Backspaces for diverged characters, and types the new delta suffix.
 pub fn insert_delta(old: &str, new: &str) -> Result<()> {
     if old == new {
+        return Ok(());
+    }
+
+    // If accessibility is not granted, DO NOT attempt synthetic key events (prevents pop-up storms)
+    if !is_trusted() {
         return Ok(());
     }
 

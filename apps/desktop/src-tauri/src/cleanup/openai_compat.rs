@@ -33,8 +33,7 @@ pub struct OpenAiCompatBackend {
 impl OpenAiCompatBackend {
     pub fn new(url: String, model: String, api_key: String, prompt: Option<String>) -> Self {
         let client = Client::builder()
-            .timeout(Duration::from_secs(60)) // cloud APIs can be slower
-            .https_only(true) // enforce HTTPS — never send API keys over plain HTTP
+            .timeout(Duration::from_secs(45))
             .build()
             .expect("HTTP client init failed");
         Self { client, url, model, api_key, prompt }
@@ -71,7 +70,14 @@ struct MessageContent {
 #[async_trait::async_trait]
 impl CleanupBackend for OpenAiCompatBackend {
     async fn refine(&self, raw: &str) -> Result<String, CleanupError> {
-        let endpoint = format!("{}/v1/chat/completions", self.url.trim_end_matches('/'));
+        let clean_url = self.url.trim_end_matches('/');
+        let endpoint = if clean_url.ends_with("/chat/completions") {
+            clean_url.to_string()
+        } else if clean_url.ends_with("/v1") {
+            format!("{clean_url}/chat/completions")
+        } else {
+            format!("{clean_url}/v1/chat/completions")
+        };
 
         let system_msg = match &self.prompt {
             Some(p) if !p.trim().is_empty() => p.as_str(),
