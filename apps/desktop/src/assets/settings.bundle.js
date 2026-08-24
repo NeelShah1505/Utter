@@ -320,6 +320,17 @@
       function escapeHtml(str) {
         return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
+      async function loadHistoryFromBackend() {
+        try {
+          const entries = await invoke("get_history");
+          if (Array.isArray(entries)) {
+            dictHistory = entries;
+            updateHistoryUI();
+          }
+        } catch (e) {
+          console.error("get_history failed:", e);
+        }
+      }
       function updateHistoryUI() {
         const container = document.getElementById("history-list");
         if (!container) return;
@@ -330,7 +341,7 @@
         if (dictHistory.length === 0) {
           container.innerHTML = `
       <div id="history-empty" class="empty-state-card">
-        <div class="empty-icon">\u{1F399}\uFE0F</div>
+        <div class="empty-icon"><svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg></div>
         <h4>No dictations yet</h4>
         <p>Trigger dictation with Cmd+Shift+D anywhere on your Mac. Your real speech-to-text logs will appear here instantly with quick copy controls.</p>
       </div>
@@ -342,14 +353,14 @@
         }
         let totalWords = 0;
         dictHistory.forEach((entry, idx) => {
-          const wordCount = entry.text.split(/\s+/).filter((w) => w.length > 0).length;
+          const wordCount = entry.word_count || entry.text.split(/\s+/).filter((w) => w.length > 0).length;
           totalWords += wordCount;
           const card = document.createElement("div");
           card.className = "history-card";
           card.innerHTML = `
       <div class="history-meta">
-        <span class="history-time">${entry.timestamp}</span>
-        <span class="history-app">\u26A1 Real-time Streamed</span>
+        <span class="history-time">${entry.timestamp || "Just now"}</span>
+        <span class="history-app"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: middle; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Real-time Streamed</span>
       </div>
       <p class="history-text" id="hist-text-${idx}">${escapeHtml(entry.text)}</p>
       <div class="history-actions">
@@ -367,17 +378,23 @@
             }, 2e3);
           };
           const delBtn = card.querySelector(".btn-del-sm");
-          delBtn.onclick = () => {
-            dictHistory.splice(idx, 1);
-            localStorage.setItem("utter_history", JSON.stringify(dictHistory));
+          delBtn.onclick = async () => {
+            try {
+              dictHistory = await invoke("delete_history_item", { id: entry.id });
+            } catch (e) {
+              dictHistory.splice(idx, 1);
+            }
             updateHistoryUI();
           };
           const editBtn = card.querySelector(".btn-edit-sm");
-          editBtn.onclick = () => {
+          editBtn.onclick = async () => {
             const newText = prompt("Edit transcript:", entry.text);
             if (newText !== null && newText.trim() !== "") {
-              dictHistory[idx].text = newText.trim();
-              localStorage.setItem("utter_history", JSON.stringify(dictHistory));
+              try {
+                dictHistory = await invoke("update_history_item", { id: entry.id, newText: newText.trim() });
+              } catch (e) {
+                dictHistory[idx].text = newText.trim();
+              }
               updateHistoryUI();
             }
           };
@@ -387,17 +404,24 @@
         if (statWpm) statWpm.innerHTML = `${totalWords > 0 ? 128 : 0} <small>wpm</small>`;
         if (statStreak) statStreak.innerHTML = `1 <small>day</small>`;
       }
-      document.getElementById("btn-clear-history")?.addEventListener("click", () => {
+      document.getElementById("btn-clear-history")?.addEventListener("click", async () => {
+        try {
+          await invoke("clear_history");
+        } catch (e) {
+          console.error("clear_history failed:", e);
+        }
         dictHistory = [];
-        localStorage.setItem("utter_history", "[]");
         updateHistoryUI();
       });
       listen("transcript_final", (event) => {
-        if (event.payload && event.payload.text) {
-          const timeStr = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " \u2022 " + (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-          dictHistory.unshift({ text: event.payload.text, timestamp: timeStr });
-          if (dictHistory.length > 30) dictHistory.pop();
-          localStorage.setItem("utter_history", JSON.stringify(dictHistory));
+        if (event.payload) {
+          if (event.payload.entry) {
+            dictHistory = dictHistory.filter((e) => e.id !== event.payload.entry.id);
+            dictHistory.unshift(event.payload.entry);
+          } else if (event.payload.text) {
+            const timeStr = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " \u2022 " + (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+            dictHistory.unshift({ id: "hist_" + Date.now(), text: event.payload.text, timestamp: timeStr, word_count: event.payload.text.split(/\s+/).length });
+          }
           updateHistoryUI();
         }
       });
@@ -533,6 +557,12 @@
           testResult.className = "test-result-msg";
           try {
             const settings = buildSettingsObject();
+            if (settings.cleanup.type === "OpenAiCompat" && oaiKey && oaiKey.value.trim()) {
+              await invoke("set_keychain_secret", {
+                account: settings.cleanup.keychain_account,
+                secret: oaiKey.value.trim()
+              });
+            }
             const result = await invoke("test_cleanup", { settings });
             testResult.textContent = `\u2713 Model Responded ("${result.output}") \u2022 Latency: ${result.latency_ms}ms`;
             testResult.className = "test-result-msg success";
@@ -545,6 +575,7 @@
         });
       }
       loadSettings().catch(console.error);
+      loadHistoryFromBackend().catch(console.error);
       var accessBadge = document.getElementById("accessibility-badge");
       var grantAccessBtn = document.getElementById("btn-grant-accessibility");
       async function updateAccessibilityUI() {
@@ -576,7 +607,10 @@
         });
       }
       updateAccessibilityUI();
-      window.addEventListener("focus", updateAccessibilityUI);
+      window.addEventListener("focus", () => {
+        updateAccessibilityUI();
+        loadHistoryFromBackend();
+      });
     }
   });
   require_settings();

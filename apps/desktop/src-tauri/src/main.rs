@@ -20,6 +20,7 @@ mod cleanup;
 mod commands;
 mod engine;
 mod error;
+mod history;
 mod hotkey;
 mod insert;
 mod mic;
@@ -77,6 +78,10 @@ fn main() {
             commands::get_logs,
             commands::check_accessibility,
             commands::request_accessibility,
+            commands::get_history,
+            commands::delete_history_item,
+            commands::update_history_item,
+            commands::clear_history,
         ])
         // --- Setup callback: runs once after the window is created ---
         .setup(move |app| {

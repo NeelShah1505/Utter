@@ -260,11 +260,22 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         let _ = insert::insert_delta(&streamed_str, "");
     }
 
-    // --- Emit final transcript event (UI shows it even if insert fails) ---
-    let _ = app.emit(
-        "transcript_final",
-        serde_json::json!({ "text": final_text }),
-    );
+    // --- Save to persistent disk history & emit final transcript event ---
+    if !final_text.trim().is_empty() {
+        let history_entry = crate::history::add_entry(&final_text).ok();
+        let _ = app.emit(
+            "transcript_final",
+            serde_json::json!({
+                "text": final_text,
+                "entry": history_entry
+            }),
+        );
+    } else {
+        let _ = app.emit(
+            "transcript_final",
+            serde_json::json!({ "text": final_text }),
+        );
+    }
 
     // --- Return to Idle ---
     {
@@ -445,4 +456,24 @@ pub fn check_accessibility() -> bool {
 #[tauri::command]
 pub fn request_accessibility() -> bool {
     insert::request_permission()
+}
+
+#[tauri::command]
+pub fn get_history() -> Vec<crate::history::HistoryEntry> {
+    crate::history::load()
+}
+
+#[tauri::command]
+pub fn delete_history_item(id: String) -> Result<Vec<crate::history::HistoryEntry>> {
+    crate::history::delete_entry(&id)
+}
+
+#[tauri::command]
+pub fn update_history_item(id: String, new_text: String) -> Result<Vec<crate::history::HistoryEntry>> {
+    crate::history::update_entry(&id, &new_text)
+}
+
+#[tauri::command]
+pub fn clear_history() -> Result<()> {
+    crate::history::clear_all()
 }
