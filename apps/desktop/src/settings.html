@@ -266,6 +266,20 @@
           </div>
         </div>
 
+        <!-- Raw Transcription Info Card -->
+        <div id="box-None" class="engine-config-panel">
+          <div class="panel-heading">
+            <h4 class="heading-with-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              Direct Offline Acoustic Dictation
+            </h4>
+            <span class="badge-status enabled" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;">Zero Latency &bull; 100% Offline</span>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--muted); line-height: 1.5; margin: 0;">
+            Speech is converted to text directly via on-device acoustic models on your Mac without routing through any external LLM or cloud API. Dictation has zero latency and works completely offline without internet.
+          </p>
+        </div>
+
         <!-- Local Ollama Configuration -->
         <div id="box-LocalOllama" class="engine-config-panel" hidden>
           <div class="panel-heading">
@@ -363,6 +377,8 @@
                 Open System Settings
               </button>
             </div>
+          </div>
+
           <div class="setting-item-card">
             <div class="setting-desc">
               <h4>Global Dictation Hotkey</h4>
@@ -399,11 +415,14 @@
 
           <div class="setting-item-card">
             <div class="setting-desc">
-              <h4>Real-time Cursor Insertion</h4>
-              <p>Types text live at cursor position without overriding your macOS system clipboard.</p>
+              <h4>Local Data Storage & Privacy</h4>
+              <p>Config: <code>~/Library/Application Support/Utter/config.toml</code><br/>History: <code>~/Library/Application Support/Utter/history.json</code><br/>API Keys: macOS Keychain (Hardware Encrypted)</p>
             </div>
             <div class="setting-control">
-              <span class="badge-active-green">✓ Enabled (Enigo Synthesizer)</span>
+              <button type="button" id="btn-open-config-dir" class="btn-action-sm" style="display: flex; align-items: center; gap: 6px; background: var(--surface-hover); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                Open in Finder
+              </button>
             </div>
           </div>
 

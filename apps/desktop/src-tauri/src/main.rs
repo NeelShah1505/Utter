@@ -82,6 +82,7 @@ fn main() {
             commands::delete_history_item,
             commands::update_history_item,
             commands::clear_history,
+            commands::open_app_folder,
         ])
         // --- Setup callback: runs once after the window is created ---
         .setup(move |app| {

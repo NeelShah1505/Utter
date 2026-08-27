@@ -417,6 +417,15 @@ pub struct CleanupTestResult {
 
 #[tauri::command]
 pub async fn test_cleanup(settings: Settings) -> Result<CleanupTestResult> {
+    match &settings.cleanup {
+        crate::settings::CleanupConfig::None => {
+            return Err(AppError::Internal(
+                "Raw Transcription (None) is active. Select Local Ollama or Cloud AI to test connection.".into(),
+            ));
+        }
+        _ => {}
+    }
+
     let backend = cleanup::build_backend(&settings.cleanup);
     const TEST_INPUT: &str = "um hello uh this is a test you know";
 
@@ -476,4 +485,14 @@ pub fn update_history_item(id: String, new_text: String) -> Result<Vec<crate::hi
 #[tauri::command]
 pub fn clear_history() -> Result<()> {
     crate::history::clear_all()
+}
+
+#[tauri::command]
+pub fn open_app_folder() -> Result<()> {
+    if let Ok(path) = settings::config_path() {
+        if let Some(parent) = path.parent() {
+            let _ = std::process::Command::new("open").arg(parent).spawn();
+        }
+    }
+    Ok(())
 }
