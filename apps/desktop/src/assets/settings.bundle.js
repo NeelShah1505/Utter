@@ -164,6 +164,7 @@
       var audioSelect = document.getElementById("audio-device-select");
       var modelSelect = document.getElementById("model-select");
       var engineRadios = document.querySelectorAll('input[name="engine-type"]');
+      var boxNone = document.getElementById("box-None");
       var boxLocalOllama = document.getElementById("box-LocalOllama");
       var boxOpenAiCompat = document.getElementById("box-OpenAiCompat");
       var ollamaLocalUrl = document.getElementById("ollama-local-url");
@@ -173,6 +174,7 @@
       var oaiKey = document.getElementById("oai-key");
       var boxCustomPrompt = document.getElementById("box-CustomPrompt");
       var aiCustomPrompt = document.getElementById("ai-custom-prompt");
+      var testBar = document.getElementById("test-bar");
       var testBtn = document.getElementById("cleanup-test-btn");
       var testResult = document.getElementById("cleanup-test-result");
       var dictTbody = document.getElementById("dictionary-tbody");
@@ -209,18 +211,36 @@
         btnGotoAiTab.addEventListener("click", () => switchTab("ai"));
       }
       function updateAiEngineVisibility(type) {
+        if (boxNone) boxNone.hidden = type !== "None";
         if (boxLocalOllama) boxLocalOllama.hidden = type !== "LocalOllama";
         if (boxOpenAiCompat) boxOpenAiCompat.hidden = type !== "OpenAiCompat";
         if (boxCustomPrompt) boxCustomPrompt.hidden = type === "None";
+        if (testBar) testBar.hidden = type === "None";
         if (aiStatusNotice) aiStatusNotice.hidden = type !== "None";
+        if (testResult) {
+          testResult.textContent = "";
+          testResult.className = "test-result-msg";
+        }
       }
       engineRadios.forEach((radio) => {
         radio.addEventListener("change", () => updateAiEngineVisibility(radio.value));
+      });
+      [ollamaLocalUrl, ollamaLocalModel, oaiUrl, oaiModel, oaiKey, aiCustomPrompt].forEach((input) => {
+        input?.addEventListener("input", () => {
+          if (testResult) {
+            testResult.textContent = "";
+            testResult.className = "test-result-msg";
+          }
+        });
       });
       document.querySelectorAll(".btn-preset").forEach((btn) => {
         btn.addEventListener("click", () => {
           if (oaiUrl) oaiUrl.value = btn.getAttribute("data-url");
           if (oaiModel) oaiModel.value = btn.getAttribute("data-model");
+          if (testResult) {
+            testResult.textContent = "";
+            testResult.className = "test-result-msg";
+          }
         });
       });
       var STYLE_PROMPTS = {
@@ -552,11 +572,17 @@
       }
       if (testBtn) {
         testBtn.addEventListener("click", async () => {
+          const settings = buildSettingsObject();
+          if (settings.cleanup.type === "None") {
+            testResult.textContent = "\u2139\uFE0F Direct Acoustic Mode is active (no external LLM to test).";
+            testResult.className = "test-result-msg";
+            return;
+          }
           testBtn.disabled = true;
-          testResult.textContent = "Connecting to AI model\u2026";
+          const targetDesc = settings.cleanup.type === "LocalOllama" ? `${settings.cleanup.url} (${settings.cleanup.model})` : `${settings.cleanup.url} (${settings.cleanup.model})`;
+          testResult.textContent = `Connecting to ${targetDesc}\u2026`;
           testResult.className = "test-result-msg";
           try {
-            const settings = buildSettingsObject();
             if (settings.cleanup.type === "OpenAiCompat" && oaiKey && oaiKey.value.trim()) {
               await invoke("set_keychain_secret", {
                 account: settings.cleanup.keychain_account,
@@ -564,10 +590,12 @@
               });
             }
             const result = await invoke("test_cleanup", { settings });
-            testResult.textContent = `\u2713 Model Responded ("${result.output}") \u2022 Latency: ${result.latency_ms}ms`;
+            const cleanSample = result.output ? result.output.replace(/[\r\n]+/g, " ").trim() : "";
+            testResult.textContent = `\u2713 Responded in ${result.latency_ms}ms ("${cleanSample}")`;
             testResult.className = "test-result-msg success";
           } catch (e) {
-            testResult.textContent = `\u2717 Connection Failed: ${e?.message ?? e ?? "Ensure model is running"}`;
+            const err = e?.message ?? e ?? "Ensure server is reachable";
+            testResult.textContent = `\u2717 Connection Failed: ${err}`;
             testResult.className = "test-result-msg error";
           } finally {
             testBtn.disabled = false;
@@ -606,6 +634,13 @@
           }
         });
       }
+      document.getElementById("btn-open-config-dir")?.addEventListener("click", async () => {
+        try {
+          await invoke("open_app_folder");
+        } catch (e) {
+          console.error("Failed to open config directory:", e);
+        }
+      });
       updateAccessibilityUI();
       window.addEventListener("focus", () => {
         updateAccessibilityUI();

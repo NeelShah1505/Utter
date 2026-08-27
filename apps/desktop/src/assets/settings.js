@@ -30,6 +30,7 @@ const modelSelect       = document.getElementById('model-select');
 
 // AI Fields
 const engineRadios      = document.querySelectorAll('input[name="engine-type"]');
+const boxNone           = document.getElementById('box-None');
 const boxLocalOllama    = document.getElementById('box-LocalOllama');
 const boxOpenAiCompat   = document.getElementById('box-OpenAiCompat');
 const ollamaLocalUrl    = document.getElementById('ollama-local-url');
@@ -39,6 +40,7 @@ const oaiModel          = document.getElementById('oai-model');
 const oaiKey            = document.getElementById('oai-key');
 const boxCustomPrompt   = document.getElementById('box-CustomPrompt');
 const aiCustomPrompt    = document.getElementById('ai-custom-prompt');
+const testBar           = document.getElementById('test-bar');
 const testBtn           = document.getElementById('cleanup-test-btn');
 const testResult        = document.getElementById('cleanup-test-result');
 
@@ -95,20 +97,42 @@ if (btnGotoAiTab) {
 }
 
 function updateAiEngineVisibility(type) {
+  if (boxNone) boxNone.hidden = (type !== 'None');
   if (boxLocalOllama) boxLocalOllama.hidden = (type !== 'LocalOllama');
   if (boxOpenAiCompat) boxOpenAiCompat.hidden = (type !== 'OpenAiCompat');
   if (boxCustomPrompt) boxCustomPrompt.hidden = (type === 'None');
+  if (testBar) testBar.hidden = (type === 'None');
   if (aiStatusNotice) aiStatusNotice.hidden = (type !== 'None');
+
+  // Immediately clear any leftover test result message
+  if (testResult) {
+    testResult.textContent = '';
+    testResult.className = 'test-result-msg';
+  }
 }
 
 engineRadios.forEach(radio => {
   radio.addEventListener('change', () => updateAiEngineVisibility(radio.value));
 });
 
+// Clear test results whenever the user types or alters AI configuration
+[ollamaLocalUrl, ollamaLocalModel, oaiUrl, oaiModel, oaiKey, aiCustomPrompt].forEach(input => {
+  input?.addEventListener('input', () => {
+    if (testResult) {
+      testResult.textContent = '';
+      testResult.className = 'test-result-msg';
+    }
+  });
+});
+
 document.querySelectorAll('.btn-preset').forEach(btn => {
   btn.addEventListener('click', () => {
     if (oaiUrl) oaiUrl.value = btn.getAttribute('data-url');
     if (oaiModel) oaiModel.value = btn.getAttribute('data-model');
+    if (testResult) {
+      testResult.textContent = '';
+      testResult.className = 'test-result-msg';
+    }
   });
 });
 
@@ -506,12 +530,22 @@ if (cancelBtn) {
 
 if (testBtn) {
   testBtn.addEventListener('click', async () => {
+    const settings = buildSettingsObject();
+    if (settings.cleanup.type === 'None') {
+      testResult.textContent = 'ℹ️ Direct Acoustic Mode is active (no external LLM to test).';
+      testResult.className = 'test-result-msg';
+      return;
+    }
+
     testBtn.disabled = true;
-    testResult.textContent = 'Connecting to AI model…';
+    const targetDesc = settings.cleanup.type === 'LocalOllama'
+      ? `${settings.cleanup.url} (${settings.cleanup.model})`
+      : `${settings.cleanup.url} (${settings.cleanup.model})`;
+
+    testResult.textContent = `Connecting to ${targetDesc}…`;
     testResult.className = 'test-result-msg';
 
     try {
-      const settings = buildSettingsObject();
       if (settings.cleanup.type === 'OpenAiCompat' && oaiKey && oaiKey.value.trim()) {
         await invoke('set_keychain_secret', { 
           account: settings.cleanup.keychain_account, 
@@ -519,10 +553,12 @@ if (testBtn) {
         });
       }
       const result = await invoke('test_cleanup', { settings });
-      testResult.textContent = `✓ Model Responded ("${result.output}") • Latency: ${result.latency_ms}ms`;
+      const cleanSample = result.output ? result.output.replace(/[\r\n]+/g, ' ').trim() : '';
+      testResult.textContent = `✓ Responded in ${result.latency_ms}ms ("${cleanSample}")`;
       testResult.className = 'test-result-msg success';
     } catch (e) {
-      testResult.textContent = `✗ Connection Failed: ${e?.message ?? e ?? 'Ensure model is running'}`;
+      const err = e?.message ?? e ?? 'Ensure server is reachable';
+      testResult.textContent = `✗ Connection Failed: ${err}`;
       testResult.className = 'test-result-msg error';
     } finally {
       testBtn.disabled = false;
@@ -567,6 +603,14 @@ if (grantAccessBtn) {
     }
   });
 }
+
+document.getElementById('btn-open-config-dir')?.addEventListener('click', async () => {
+  try {
+    await invoke('open_app_folder');
+  } catch (e) {
+    console.error('Failed to open config directory:', e);
+  }
+});
 
 updateAccessibilityUI();
 window.addEventListener('focus', () => {
