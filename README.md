@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Utter is a beautiful, open-source, cross-platform voice dictation app. Press a hotkey, speak, and your words appear in any app — offline, with no account and no telemetry. It features a stunning glassmorphic UI built natively for macOS.
+Utter is a beautiful, open-source, cross-platform voice dictation app. Press a hotkey, speak, and your words appear in any app which is offline, with no account and no telemetry. It features a stunning glassmorphic UI built natively for macOS.
 
 ---
 
