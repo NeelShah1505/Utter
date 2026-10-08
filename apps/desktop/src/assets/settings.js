@@ -137,38 +137,85 @@ document.querySelectorAll('.btn-preset').forEach(btn => {
 });
 
 const STYLE_PROMPTS = {
+  natural: "",
   email: "Format this voice dictation into a polished, professional email with polite greetings and clear structure.",
   chat: "Format this voice dictation into concise, direct chat messaging bullet points without fluff or salutations.",
   developer: "Format this dictation for a software engineer, preserving code variable names (camelCase, snake_case), technical lingo, and terminal commands."
 };
 
+function highlightActiveStyle(prompt) {
+  const normalized = (prompt || '').trim();
+  let matchedKey = null;
+
+  if (!normalized) {
+    matchedKey = 'natural';
+  } else {
+    for (const [key, text] of Object.entries(STYLE_PROMPTS)) {
+      if (key !== 'natural' && normalized === text.trim()) {
+        matchedKey = key;
+        break;
+      }
+    }
+  }
+
+  document.querySelectorAll('.style-card').forEach(c => {
+    const key = c.getAttribute('data-style');
+    const badge = c.querySelector('.badge-status');
+    const btn = c.querySelector('.btn-style-apply');
+    const isActive = (key === matchedKey);
+
+    c.classList.toggle('active-style', isActive);
+    if (badge) {
+      badge.classList.toggle('enabled', isActive);
+      badge.textContent = isActive ? 'Active' : (key === 'natural' ? 'Default' : 'Optional');
+    }
+    if (btn) {
+      btn.textContent = isActive ? '✓ Active' : 'Apply Style';
+    }
+  });
+}
+
+function selectStyle(styleKey) {
+  const currentPrompt = (aiCustomPrompt ? aiCustomPrompt.value : '').trim();
+  let targetKey = styleKey;
+  if (styleKey !== 'natural' && currentPrompt === STYLE_PROMPTS[styleKey].trim()) {
+    targetKey = 'natural';
+  }
+
+  const promptText = STYLE_PROMPTS[targetKey] || '';
+  if (aiCustomPrompt) {
+    aiCustomPrompt.value = promptText;
+  }
+  highlightActiveStyle(promptText);
+  saveSettingsSilently();
+
+  const currentEngine = document.querySelector('input[name="engine-type"]:checked')?.value || 'None';
+  if (currentEngine === 'None' && targetKey !== 'natural') {
+    if (saveStatus) {
+      saveStatus.textContent = 'ℹ️ Style saved. Note: Enable Ollama or Cloud AI in "AI & Models" to apply live writing styles.';
+      saveStatus.className = 'save-status-msg';
+      setTimeout(() => { if (saveStatus && saveStatus.textContent.startsWith('ℹ️')) saveStatus.textContent = ''; }, 4500);
+    }
+  }
+}
+
 document.querySelectorAll('.style-card').forEach(card => {
   card.addEventListener('click', () => {
     const styleKey = card.getAttribute('data-style');
-    const promptText = STYLE_PROMPTS[styleKey] || '';
-    
-    document.querySelectorAll('.style-card').forEach(c => {
-      c.classList.remove('active-style');
-      const badge = c.querySelector('.badge-status');
-      if (badge) {
-        badge.classList.remove('enabled');
-        badge.textContent = 'Optional';
-      }
-    });
-
-    card.classList.add('active-style');
-    const badge = card.querySelector('.badge-status');
-    if (badge) {
-      badge.classList.add('enabled');
-      badge.textContent = 'Active';
-    }
-
-    if (aiCustomPrompt) {
-      aiCustomPrompt.value = promptText;
-    }
-    saveSettingsSilently();
+    selectStyle(styleKey);
   });
 });
+
+const btnQuickAddSnippet = document.getElementById('btn-quick-add-snippet');
+if (btnQuickAddSnippet) {
+  btnQuickAddSnippet.addEventListener('click', () => {
+    switchTab('dictionary');
+    if (addDictBox) {
+      addDictBox.hidden = false;
+      if (newWordInput) newWordInput.focus();
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------
 // 3. Dictionary Manager Logic
@@ -437,9 +484,10 @@ async function loadSettings() {
     oaiModel.value = cleanup.model ?? 'gpt-4o-mini';
     aiCustomPrompt.value   = cleanup.prompt ?? '';
   } else {
-    aiCustomPrompt.value   = '';
+    aiCustomPrompt.value   = cleanup.prompt ?? '';
   }
 
+  highlightActiveStyle(cleanup.prompt);
   updateAiEngineVisibility(engineType);
   renderDictionary();
   updateHistoryUI();
