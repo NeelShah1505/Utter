@@ -182,6 +182,16 @@ export function getAssetUrl(release, filename) {
 }
 
 /**
+ * Returns the canonical GitHub direct-download URL for an asset filename.
+ *
+ * @param {string} filename
+ * @returns {string}
+ */
+export function getDirectDownloadUrl(filename) {
+  return `https://github.com/${REPO}/releases/latest/download/${filename}`;
+}
+
+/**
  * The GitHub releases page URL to fall back to when API fails or no assets exist.
  * Always available as a static link.
  *

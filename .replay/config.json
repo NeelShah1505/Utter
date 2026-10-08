@@ -1,0 +1,12 @@
+{
+  "qa-project-id": "proj-utter-web-app-muzbfo5u",
+  "target-url": "http://localhost:8080",
+  "upstream-url": "http://127.0.0.1:8081",
+  "app-command": "python3 -m http.server 8081 --directory site",
+  "instructions": "Test download buttons, platform detection, GitHub API integration, navigation, responsive layout, dark mode, and accessibility.",
+  "proxy": {
+    "allow": ["api.github.com", "github.com", "objects.githubusercontent.com"],
+    "local-port": 8888,
+    "qa-url": "https://qa.replay.io"
+  }
+}

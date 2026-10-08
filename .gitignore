@@ -6,3 +6,4 @@ node_modules/
 lighthouse-report.html
 lh.json
 target/
+.replay/qa-bugs/

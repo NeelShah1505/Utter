@@ -248,6 +248,10 @@ code, kbd, samp {
 .download-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 280px;
+  max-width: 100%;
+  text-align: center;
   gap: var(--space-1);
   padding: 14px 28px;
   background: var(--accent);
@@ -279,6 +283,7 @@ code, kbd, samp {
 
 .download-meta {
   margin-top: var(--space-1);
+  min-height: 1.5em;
   font-size: 0.8125rem;
   color: var(--text-muted);
 }

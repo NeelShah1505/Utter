@@ -6,7 +6,7 @@
  */
 
 import { detectPlatform, ASSETS } from './detect.js';
-import { fetchLatestRelease, getAssetUrl, RELEASES_PAGE_URL } from './releases.js';
+import { fetchLatestRelease, getAssetUrl, getDirectDownloadUrl, RELEASES_PAGE_URL } from './releases.js';
 
 /** Human-readable labels for each canonical asset filename. */
 const ASSET_LABELS = Object.freeze({
@@ -44,8 +44,8 @@ function setPrimaryButton(btn, filename, url, size, version) {
     const parts = [];
     if (version) parts.push(version);
     if (size)    parts.push(size);
-    meta.textContent = parts.length ? parts.join(' · ') : '';
-    meta.hidden = parts.length === 0;
+    meta.textContent = parts.length ? parts.join(' · ') : 'Choose your platform on GitHub';
+    meta.hidden = false;
   }
 
   btn.removeAttribute('aria-disabled');
@@ -75,16 +75,11 @@ function populateOtherPlatformsList(list, release, primaryAsset) {
     const li = document.createElement('li');
     const a  = document.createElement('a');
 
-    const url  = release ? getAssetUrl(release, filename) : null;
+    const url  = (release ? getAssetUrl(release, filename) : null) || getDirectDownloadUrl(filename);
     const size = release ? formatSize((release.assets.find(a => a.name === filename) || {}).size) : null;
 
-    if (url) {
-      a.href = url;
-      a.setAttribute('download', filename);
-    } else {
-      // No release or asset not in release — link to releases page
-      a.href = RELEASES_PAGE_URL;
-    }
+    a.href = url;
+    a.setAttribute('download', filename);
 
     const label = ASSET_LABELS[filename] || filename;
     a.textContent = label;
@@ -135,15 +130,10 @@ async function init() {
 
   // Determine download URL for the primary button
   if (detectedAsset) {
-    const url = release ? getAssetUrl(release, detectedAsset) : null;
-    if (url) {
-      const size    = release ? formatSize((release.assets.find(a => a.name === detectedAsset) || {}).size) : null;
-      const version = release ? release.version : '';
-      setPrimaryButton(btn, detectedAsset, url, size, version);
-    } else {
-      // Detected platform but no matching asset in the release (or no release yet)
-      setPrimaryButtonFallback(btn);
-    }
+    const url = (release ? getAssetUrl(release, detectedAsset) : null) || getDirectDownloadUrl(detectedAsset);
+    const size    = release ? formatSize((release.assets.find(a => a.name === detectedAsset) || {}).size) : null;
+    const version = release ? release.version : '';
+    setPrimaryButton(btn, detectedAsset, url, size, version);
   } else {
     // Inconclusive detection — show generic "Download from GitHub"
     setPrimaryButtonFallback(btn);

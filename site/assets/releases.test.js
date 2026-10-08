@@ -16,7 +16,7 @@
 
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchLatestRelease, getAssetUrl, RELEASES_PAGE_URL, REPO } from './releases.js';
+import { fetchLatestRelease, getAssetUrl, getDirectDownloadUrl, RELEASES_PAGE_URL, REPO } from './releases.js';
 
 // ---------------------------------------------------------------------------
 // Mock release fixture — uses exact canonical filenames
@@ -186,6 +186,13 @@ describe('getAssetUrl', () => {
     });
     const url = getAssetUrl(release, 'nonexistent-file.dmg');
     assert.equal(url, null);
+  });
+});
+
+describe('getDirectDownloadUrl', () => {
+  test('returns canonical GitHub latest direct-download URL for asset filename', () => {
+    const url = getDirectDownloadUrl('app-macos-arm64.dmg');
+    assert.equal(url, `https://github.com/${REPO}/releases/latest/download/app-macos-arm64.dmg`);
   });
 });
 
