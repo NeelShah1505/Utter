@@ -53,18 +53,63 @@
           <p class="welcome-subheading">Your offline voice dictation engine is ready. Hold or click your hotkey anywhere in macOS to speak.</p>
         </header>
 
-        <!-- Hero Banner -->
-        <div class="hero-banner">
-          <div class="hero-content">
-            <span class="hero-tag">PERSONALIZED RECOGNITION</span>
-            <h2>Make Utter sound like you</h2>
-            <p>Set up writing styles, custom abbreviations, and industry vocabulary for seamless real-time accuracy across all desktop apps.</p>
-            <button class="btn-hero" id="btn-explore-dict">Open Dictionary &rarr;</button>
+        <!-- Studio Action Cards: Audio Upload & Voice Input (matching shadcn UI) -->
+        <div class="studio-actions-grid">
+          
+          <!-- Audio Upload Card (Left) -->
+          <div class="studio-card audio-upload-card-wrapper" id="card-audio-upload">
+            <span class="card-badge-unlocked">Unlocked</span>
+            <div class="upload-dropzone" id="audio-dropzone" tabindex="0" role="button" aria-label="Upload audio recording">
+              <input type="file" id="audio-file-input" accept="audio/*" class="sr-only" style="display:none;">
+              
+              <div class="upload-icon-bg" id="upload-icon-bg">
+                <svg viewBox="0 0 24 24" width="44" height="44" stroke="currentColor" stroke-width="2" fill="none" class="upload-icon">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+
+              <!-- Floating Audio Chip Animation when file dropped -->
+              <div id="audio-chip-container" class="audio-chip" hidden>
+                <button type="button" id="btn-remove-audio" class="btn-chip-remove" title="Remove audio">&times;</button>
+                <div class="waveform-svg-container" id="waveform-container"></div>
+                <span class="audio-chip-name" id="audio-filename">audio.mp3</span>
+              </div>
+            </div>
+
+            <div class="card-text-footer">
+              <h3 class="card-title">Upload Your Audio</h3>
+              <p class="card-desc">Drop in your recordings and start transcribing instantly.</p>
+            </div>
+            <div id="upload-transcribe-status" class="upload-status-text"></div>
           </div>
-          <div class="hero-graphic">
-            <div class="pulse-ring"></div>
-            <div class="mic-icon-large">🎙️</div>
+
+          <!-- Voice Input Mic Card (Right) -->
+          <div class="studio-card voice-input-card-wrapper" id="card-voice-input">
+            <span class="card-badge-unlocked">Unlocked</span>
+            <div class="voice-card-content">
+              <div class="voice-input-pill" id="voice-input-btn" role="button" tabindex="0" title="Click to dictate or use ⌘⇧D anywhere on Mac">
+                <div class="voice-icon-box">
+                  <svg id="mic-svg-icon" class="mic-icon-svg" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                  </svg>
+                  <div id="mic-stop-box" class="mic-stop-spinner" hidden></div>
+                </div>
+                
+                <div id="voice-listening-content" class="voice-listening-elements" hidden>
+                  <div class="voice-bars-container" id="voice-freq-bars">
+                    <!-- 12 frequency wave bars populated by JS -->
+                  </div>
+                  <span class="voice-timer" id="voice-timer">00:00</span>
+                </div>
+              </div>
+              <p class="voice-card-hint" id="voice-hint-msg">Click mic to dictate inside Utter or press <kbd>⌘⇧D</kbd> anywhere on your Mac</p>
+            </div>
           </div>
+
         </div>
 
         <!-- Stats Overview -->
