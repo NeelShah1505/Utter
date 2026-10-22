@@ -279,7 +279,7 @@
             badge.textContent = isActive ? "Active" : key === "natural" ? "Default" : "Optional";
           }
           if (btn) {
-            btn.textContent = isActive ? "\u2713 Active" : "Apply Style";
+            btn.textContent = isActive ? "Active" : "Apply Style";
           }
         });
       }
@@ -340,7 +340,7 @@
           tdActions.className = "col-actions";
           const delBtn = document.createElement("button");
           delBtn.className = "btn-delete-icon";
-          delBtn.innerHTML = "\u{1F5D1}\uFE0F";
+          delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
           delBtn.title = "Remove word";
           delBtn.onclick = () => {
             currentSettings.dictionary.splice(index, 1);
@@ -442,7 +442,7 @@
           const copyBtn = card.querySelector(".btn-copy-sm");
           copyBtn.onclick = () => {
             navigator.clipboard.writeText(entry.text);
-            copyBtn.textContent = "\u2713 Copied";
+            copyBtn.textContent = "Copied!";
             setTimeout(() => {
               copyBtn.textContent = "Copy";
             }, 2e3);
@@ -600,13 +600,13 @@
                 secret: oaiKey.value.trim()
               });
             }
-            saveStatus.textContent = "\u2713 Studio configuration saved successfully!";
+            saveStatus.textContent = "Studio configuration saved successfully!";
             saveStatus.className = "save-status-msg success";
             setTimeout(() => {
               saveStatus.textContent = "";
             }, 3500);
           } catch (e) {
-            saveStatus.textContent = `\u2717 Save failed: ${e?.message ?? "Unknown error"}`;
+            saveStatus.textContent = `Save failed: ${e?.message ?? "Unknown error"}`;
             saveStatus.className = "save-status-msg error";
           }
         });
@@ -625,7 +625,7 @@
         testBtn.addEventListener("click", async () => {
           const settings = buildSettingsObject();
           if (settings.cleanup.type === "None") {
-            testResult.textContent = "\u2139\uFE0F Direct Acoustic Mode is active (no external LLM to test).";
+            testResult.textContent = "Direct Acoustic Mode is active (no external LLM to test).";
             testResult.className = "test-result-msg";
             return;
           }
@@ -642,11 +642,11 @@
             }
             const result = await invoke("test_cleanup", { settings });
             const cleanSample = result.output ? result.output.replace(/[\r\n]+/g, " ").trim() : "";
-            testResult.textContent = `\u2713 Responded in ${result.latency_ms}ms ("${cleanSample}")`;
+            testResult.textContent = `Responded in ${result.latency_ms}ms ("${cleanSample}")`;
             testResult.className = "test-result-msg success";
           } catch (e) {
             const err = e?.message ?? e ?? "Ensure server is reachable";
-            testResult.textContent = `\u2717 Connection Failed: ${err}`;
+            testResult.textContent = `Connection Failed: ${err}`;
             testResult.className = "test-result-msg error";
           } finally {
             testBtn.disabled = false;
@@ -802,12 +802,20 @@
       }
       function updateVoiceUI(status) {
         if (status === "Listening") {
+          if (isVoiceActive) return;
           isVoiceActive = true;
           playAudioCue("start");
           if (voiceInputBtn) voiceInputBtn.classList.add("listening");
+          if (onboardTestMic) onboardTestMic.classList.add("listening");
           if (micSvgIcon) micSvgIcon.style.display = "none";
-          if (micStopBox) micStopBox.hidden = false;
-          if (voiceListeningContent) voiceListeningContent.hidden = false;
+          if (micStopBox) {
+            micStopBox.hidden = false;
+            micStopBox.style.display = "block";
+          }
+          if (voiceListeningContent) {
+            voiceListeningContent.hidden = false;
+            voiceListeningContent.style.display = "flex";
+          }
           if (voiceStatusLabel) voiceStatusLabel.textContent = "Listening...";
           if (voiceHintMsg) voiceHintMsg.innerHTML = "Listening... Speak naturally or click stop button";
           startVoiceAnimation();
@@ -815,30 +823,43 @@
           if (voiceStatusLabel) voiceStatusLabel.textContent = "Transcribing...";
           if (voiceHintMsg) voiceHintMsg.textContent = "Transcribing voice & applying AI cleanup...";
         } else {
+          if (!isVoiceActive && !voiceInputBtn?.classList.contains("listening")) return;
           if (isVoiceActive) playAudioCue("stop");
           isVoiceActive = false;
           if (voiceInputBtn) voiceInputBtn.classList.remove("listening");
-          if (micSvgIcon) micSvgIcon.style.display = "";
-          if (micStopBox) micStopBox.hidden = true;
-          if (voiceListeningContent) voiceListeningContent.hidden = true;
+          if (onboardTestMic) onboardTestMic.classList.remove("listening");
+          if (micSvgIcon) micSvgIcon.style.display = "block";
+          if (micStopBox) {
+            micStopBox.hidden = true;
+            micStopBox.style.display = "none";
+          }
+          if (voiceListeningContent) {
+            voiceListeningContent.hidden = true;
+            voiceListeningContent.style.display = "none";
+          }
           if (voiceStatusLabel) voiceStatusLabel.textContent = "Ready to Record";
           if (voiceHintMsg) voiceHintMsg.innerHTML = "Click mic to dictate inside Utter or press <kbd>\u2318\u21E7D</kbd> anywhere on your Mac";
           stopVoiceAnimation();
         }
       }
       async function toggleVoiceDictation() {
-        try {
-          if (!isVoiceActive) {
-            if (voiceStatusLabel) voiceStatusLabel.textContent = "Opening mic...";
+        if (!isVoiceActive) {
+          updateVoiceUI("Listening");
+          try {
             await invoke("start_dictation");
-          } else {
-            if (voiceStatusLabel) voiceStatusLabel.textContent = "Stopping...";
-            await invoke("stop_dictation");
+          } catch (e) {
+            console.error("Mic start failed:", e);
+            updateVoiceUI("Idle");
+            if (voiceHintMsg) voiceHintMsg.textContent = `Mic error: ${e?.message ?? e}`;
+            if (voiceStatusLabel) voiceStatusLabel.textContent = "Error";
           }
-        } catch (e) {
-          console.error("Mic toggle failed:", e);
-          if (voiceHintMsg) voiceHintMsg.textContent = `Mic error: ${e?.message ?? e}`;
-          if (voiceStatusLabel) voiceStatusLabel.textContent = "Error";
+        } else {
+          updateVoiceUI("Idle");
+          try {
+            await invoke("stop_dictation");
+          } catch (e) {
+            console.error("Mic stop failed:", e);
+          }
         }
       }
       if (voiceInputBtn) {
@@ -913,7 +934,7 @@
           dictHistory.unshift(newEntry);
           updateHistoryUI();
           if (uploadStatusText) {
-            uploadStatusText.textContent = `\u2713 Transcribed "${name}" \u2022 Added to Recent Transcriptions!`;
+            uploadStatusText.textContent = `Transcribed "${name}" \u2022 Added to Recent Transcriptions!`;
             uploadStatusText.className = "upload-status-text success";
           }
         }, 900);
@@ -967,12 +988,12 @@
         if (heroAppName) heroAppName.textContent = app.name || "Active App";
         if (heroAppMode) {
           if (currentSmartMode === "auto") {
-            heroAppMode.textContent = `${app.mode_label || "Auto-Detect"} ${app.icon || "\u26A1"}`;
+            heroAppMode.textContent = app.mode_label || "Auto-Detect";
           } else {
             const labels = {
-              code: "Code Mode \u{1F4BB}",
-              chat: "Casual Chat \u{1F4AC}",
-              pro: "Pro Prose \u{1F4DD}"
+              code: "Code Mode",
+              chat: "Casual Chat",
+              pro: "Pro Prose"
             };
             heroAppMode.textContent = labels[currentSmartMode] || "Custom Mode";
           }
@@ -1124,7 +1145,7 @@
       listen("transcript_final", (event) => {
         if (event.payload?.text && onboardTestResult) {
           onboardTestResult.innerHTML = `<strong>Captured:</strong> "${event.payload.text}"`;
-          if (onboardTestHint) onboardTestHint.textContent = "\u2713 Voice Successfully Transcribed!";
+          if (onboardTestHint) onboardTestHint.textContent = "Voice Successfully Transcribed!";
           if (onboardTestMic) onboardTestMic.classList.remove("listening");
         }
       });

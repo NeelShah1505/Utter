@@ -590,7 +590,7 @@ pub fn detect_active_app() -> ActiveAppInfo {
                 || name_lower.contains("code")
                 || name_lower.contains("terminal")
             {
-                ("code".to_string(), "Code Mode".to_string(), "💻".to_string())
+                ("code".to_string(), "Code Mode".to_string(), "code".to_string())
             } else if bundle_lower.contains("slack")
                 || bundle_lower.contains("discord")
                 || bundle_lower.contains("whatsapp")
@@ -598,15 +598,15 @@ pub fn detect_active_app() -> ActiveAppInfo {
                 || bundle_lower.contains("messages")
                 || bundle_lower.contains("signal")
             {
-                ("chat".to_string(), "Casual Chat".to_string(), "💬".to_string())
+                ("chat".to_string(), "Casual Chat".to_string(), "chat".to_string())
             } else if bundle_lower.contains("mail")
                 || bundle_lower.contains("outlook")
                 || bundle_lower.contains("superhuman")
                 || bundle_lower.contains("spark")
             {
-                ("email".to_string(), "Professional Email".to_string(), "✉️".to_string())
+                ("email".to_string(), "Professional Email".to_string(), "email".to_string())
             } else {
-                ("pro".to_string(), "Pro Document".to_string(), "📝".to_string())
+                ("pro".to_string(), "Pro Document".to_string(), "pro".to_string())
             };
 
             return ActiveAppInfo {
@@ -624,7 +624,7 @@ pub fn detect_active_app() -> ActiveAppInfo {
         bundle_id: "com.apple.generic".to_string(),
         mode: "pro".to_string(),
         mode_label: "Pro Document".to_string(),
-        icon: "📝".to_string(),
+        icon: "pro".to_string(),
     }
 }
 

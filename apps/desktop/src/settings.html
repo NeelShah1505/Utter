@@ -13,24 +13,12 @@
     <aside class="app-sidebar">
       <div class="brand-header">
         <div class="brand-logo">
-          <svg class="brand-wave-icon" viewBox="0 0 32 32" width="30" height="30" fill="none">
-            <defs>
-              <linearGradient id="utterGradient" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#818cf8"/>
-                <stop offset="50%" stop-color="#6366f1"/>
-                <stop offset="100%" stop-color="#06b6d4"/>
-              </linearGradient>
-            </defs>
-            <rect width="32" height="32" rx="9" fill="rgba(99, 102, 241, 0.16)" stroke="rgba(99, 102, 241, 0.45)" stroke-width="1.2"/>
-            <path d="M9 8v8a7 7 0 0 0 14 0V8" stroke="url(#utterGradient)" stroke-width="2.6" stroke-linecap="round"/>
-            <line x1="13" y1="12" x2="13" y2="17" stroke="url(#utterGradient)" stroke-width="2" stroke-linecap="round"/>
-            <line x1="16" y1="9" x2="16" y2="20" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
-            <line x1="19" y1="12" x2="19" y2="17" stroke="url(#utterGradient)" stroke-width="2" stroke-linecap="round"/>
+          <svg class="wave-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
           </svg>
-          <div class="brand-text-col">
-            <div class="brand-title">Utter <span class="brand-gradient">Studio</span></div>
-            <span class="brand-badge-offline">OFFLINE PRO</span>
-          </div>
+          <span class="brand-title">Utter Studio</span>
         </div>
       </div>
 
@@ -54,7 +42,7 @@
         <div class="sidebar-divider"></div>
 
         <button class="sidebar-btn-tour" id="btn-open-tour" type="button">
-          <span class="nav-icon">✨</span> <span class="nav-label">Setup Wizard</span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2L21 12l-6.6 2.8L12 22l-2.4-7.2L3 12l6.6-2.8L12 2z"></path></svg></span> <span class="nav-label">Setup Wizard</span>
         </button>
       </nav>
 
@@ -72,17 +60,17 @@
     <!-- === Main Content Views === -->
     <main class="app-main-content">
       
-      <!-- 🏠 HOME DASHBOARD TAB -->
+      <!-- HOME DASHBOARD TAB -->
       <section id="view-home" class="view-panel active">
         <header class="view-header">
           <div class="hero-top-row">
             <div>
-              <h1 class="welcome-heading">Welcome back, NEEL 👋</h1>
+              <h1 class="welcome-heading">Welcome back, NEEL</h1>
               <p class="welcome-subheading">Your offline voice dictation engine is active. Hold or click your hotkey anywhere in macOS to speak.</p>
             </div>
             <div class="hero-engine-pill" id="hero-engine-pill">
               <span class="pulse-indicator"></span>
-              <span class="hero-pill-text">Target: <strong id="hero-app-name">Active App</strong> • <span class="hero-mode-tag" id="hero-app-mode">Auto-Detect ⚡</span></span>
+              <span class="hero-pill-text">Target: <strong id="hero-app-name">Active App</strong> • <span class="hero-mode-tag" id="hero-app-mode">Auto-Detect</span></span>
             </div>
           </div>
 
@@ -90,16 +78,16 @@
           <div class="smart-mode-bar" id="smart-mode-bar">
             <span class="mode-bar-label">Smart Context:</span>
             <button type="button" class="mode-chip active" data-mode="auto" title="Automatically format based on frontmost app (Cursor, Slack, Mail, etc.)">
-              <span class="mode-icon">⚡</span> Auto-Detect
+              <span class="mode-icon"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span> Auto-Detect
             </button>
             <button type="button" class="mode-chip" data-mode="code" title="Clean code comments, technical terms, and variable names">
-              <span class="mode-icon">💻</span> Code Mode
+              <span class="mode-icon"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span> Code Mode
             </button>
             <button type="button" class="mode-chip" data-mode="chat" title="Natural instant messaging phrasing for Slack & WhatsApp">
-              <span class="mode-icon">💬</span> Casual Chat
+              <span class="mode-icon"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span> Casual Chat
             </button>
             <button type="button" class="mode-chip" data-mode="pro" title="Grammatically impeccable prose for docs & reports">
-              <span class="mode-icon">📝</span> Pro Prose
+              <span class="mode-icon"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></span> Pro Prose
             </button>
           </div>
         </header>
@@ -146,10 +134,10 @@
                       <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                       <line x1="12" y1="19" x2="12" y2="22"></line>
                     </svg>
-                    <div id="mic-stop-box" class="mic-stop-spinner" hidden></div>
+                    <svg id="mic-stop-box" class="mic-stop-svg" viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="5" y="5" width="14" height="14" rx="3" fill="#ef4444" /></svg>
                   </div>
                   
-                  <div id="voice-listening-content" class="voice-listening-elements" hidden>
+                  <div id="voice-listening-content" class="voice-listening-elements">
                     <div class="voice-bars-container" id="voice-freq-bars">
                       <!-- 12 frequency wave bars populated by JS -->
                     </div>
@@ -198,7 +186,7 @@
           </div>
           <div id="history-list" class="history-list">
             <div id="history-empty" class="empty-state-card">
-              <div class="empty-icon">🎙️</div>
+              <div class="empty-icon"><svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg></div>
               <h4>No dictations yet</h4>
               <p>Trigger dictation with Cmd+Shift+D anywhere on your Mac. Your real speech-to-text logs will appear here instantly with quick copy controls.</p>
             </div>
@@ -206,7 +194,7 @@
         </div>
       </section>
 
-      <!-- 📖 DICTIONARY TAB -->
+      <!-- DICTIONARY TAB -->
       <section id="view-dictionary" class="view-panel">
         <header class="view-header flex-header">
           <div>
@@ -277,7 +265,7 @@
         </div>
       </section>
 
-      <!-- ⚡ SNIPPETS & STYLES TAB -->
+      <!-- SNIPPETS & STYLES TAB -->
       <section id="view-snippets" class="view-panel">
         <header class="view-header">
           <h1 class="page-title">Writing Styles & Transforms</h1>
@@ -353,7 +341,7 @@
           </div>
         </div>
 
-        <!-- ⚡ VOICE SNIPPETS & QUICK EXPANSIONS -->
+        <!-- VOICE SNIPPETS & QUICK EXPANSIONS -->
         <div class="snippets-section">
           <div class="section-top-bar" style="margin-top: 36px; margin-bottom: 14px;">
             <div>
@@ -385,7 +373,7 @@
         </div>
       </section>
 
-      <!-- 🤖 AI & MODELS TAB -->
+      <!-- AI & MODELS TAB -->
       <section id="view-ai" class="view-panel">
         <header class="view-header">
           <h1 class="page-title">AI Integration & Engines</h1>
@@ -516,7 +504,7 @@
         </div>
       </section>
 
-      <!-- ⚙️ GENERAL SETTINGS TAB -->
+      <!-- GENERAL SETTINGS TAB -->
       <section id="view-settings" class="view-panel">
         <header class="view-header">
           <h1 class="page-title">General Settings</h1>
@@ -671,15 +659,15 @@
           
           <div class="onboard-features-list">
             <div class="onboard-feature-row">
-              <span class="feat-icon">⚡</span>
+              <span class="feat-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span>
               <div><strong>3x Faster Than Typing:</strong> Speak naturally anywhere in macOS and your words appear instantly.</div>
             </div>
             <div class="onboard-feature-row">
-              <span class="feat-icon">🔒</span>
+              <span class="feat-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
               <div><strong>100% Private & Offline:</strong> Runs locally on Apple Neural Engine. No accounts, no data logging.</div>
             </div>
             <div class="onboard-feature-row">
-              <span class="feat-icon">🎯</span>
+              <span class="feat-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg></span>
               <div><strong>Smart Context Routing:</strong> Automatically formats code for Cursor, chat for Slack, and email for Mail.</div>
             </div>
           </div>
@@ -689,7 +677,13 @@
 
         <!-- Step 2: Microphone Calibration -->
         <div class="onboarding-step" id="onboard-step-2" hidden style="display: none;">
-          <div class="onboard-hero-logo">🎙️</div>
+          <div class="onboard-hero-logo">
+            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          </div>
           <h2 class="onboard-title">Hardware Microphone Test</h2>
           <p class="onboard-subtitle">Speak out loud right now to calibrate and verify your microphone input level.</p>
           
@@ -708,7 +702,11 @@
 
         <!-- Step 3: Accessibility Permission Guardian -->
         <div class="onboarding-step" id="onboard-step-3" hidden style="display: none;">
-          <div class="onboard-hero-logo">🛡️</div>
+          <div class="onboard-hero-logo">
+            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
           <h2 class="onboard-title">macOS Accessibility Guardian</h2>
           <p class="onboard-subtitle">Required for Utter to insert your dictated text directly into active windows (Cursor, Slack, Chrome, Xcode).</p>
           
@@ -735,7 +733,14 @@
 
         <!-- Step 4: Interactive Test Drive -->
         <div class="onboarding-step" id="onboard-step-4" hidden style="display: none;">
-          <div class="onboard-hero-logo">🚀</div>
+          <div class="onboard-hero-logo">
+            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
+              <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
+              <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
+              <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
+            </svg>
+          </div>
           <h2 class="onboard-title">Your First Dictation</h2>
           <p class="onboard-subtitle">Click the mic button or hit <kbd>⌘⇧D</kbd> anywhere on your Mac and say a short test sentence.</p>
           
@@ -753,7 +758,7 @@
             </div>
           </div>
 
-          <button type="button" class="btn-onboard-primary btn-sparkle" id="btn-onboard-finish">Launch Utter Studio 🎉</button>
+          <button type="button" class="btn-onboard-primary btn-sparkle" id="btn-onboard-finish">Launch Utter Studio →</button>
         </div>
 
       </div>

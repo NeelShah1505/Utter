@@ -178,7 +178,7 @@ function highlightActiveStyle(prompt) {
       badge.textContent = isActive ? 'Active' : (key === 'natural' ? 'Default' : 'Optional');
     }
     if (btn) {
-      btn.textContent = isActive ? '✓ Active' : 'Apply Style';
+      btn.textContent = isActive ? 'Active' : 'Apply Style';
     }
   });
 }
@@ -253,7 +253,7 @@ function renderDictionary() {
     tdActions.className = 'col-actions';
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-delete-icon';
-    delBtn.innerHTML = '🗑️';
+    delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
     delBtn.title = 'Remove word';
     delBtn.onclick = () => {
       currentSettings.dictionary.splice(index, 1);
@@ -374,7 +374,7 @@ function updateHistoryUI() {
     const copyBtn = card.querySelector('.btn-copy-sm');
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(entry.text);
-      copyBtn.textContent = '✓ Copied';
+      copyBtn.textContent = 'Copied!';
       setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
     };
 
@@ -565,11 +565,11 @@ if (saveBtn) {
         });
       }
 
-      saveStatus.textContent = '✓ Studio configuration saved successfully!';
+      saveStatus.textContent = 'Studio configuration saved successfully!';
       saveStatus.className = 'save-status-msg success';
       setTimeout(() => { saveStatus.textContent = ''; }, 3500);
     } catch (e) {
-      saveStatus.textContent = `✗ Save failed: ${e?.message ?? 'Unknown error'}`;
+      saveStatus.textContent = `Save failed: ${e?.message ?? 'Unknown error'}`;
       saveStatus.className = 'save-status-msg error';
     }
   });
@@ -588,7 +588,7 @@ if (testBtn) {
   testBtn.addEventListener('click', async () => {
     const settings = buildSettingsObject();
     if (settings.cleanup.type === 'None') {
-      testResult.textContent = 'ℹ️ Direct Acoustic Mode is active (no external LLM to test).';
+      testResult.textContent = 'Direct Acoustic Mode is active (no external LLM to test).';
       testResult.className = 'test-result-msg';
       return;
     }
@@ -610,11 +610,11 @@ if (testBtn) {
       }
       const result = await invoke('test_cleanup', { settings });
       const cleanSample = result.output ? result.output.replace(/[\r\n]+/g, ' ').trim() : '';
-      testResult.textContent = `✓ Responded in ${result.latency_ms}ms ("${cleanSample}")`;
+      testResult.textContent = `Responded in ${result.latency_ms}ms ("${cleanSample}")`;
       testResult.className = 'test-result-msg success';
     } catch (e) {
       const err = e?.message ?? e ?? 'Ensure server is reachable';
-      testResult.textContent = `✗ Connection Failed: ${err}`;
+      testResult.textContent = `Connection Failed: ${err}`;
       testResult.className = 'test-result-msg error';
     } finally {
       testBtn.disabled = false;
@@ -794,12 +794,20 @@ function playAudioCue(type) {
 
 function updateVoiceUI(status) {
   if (status === 'Listening') {
+    if (isVoiceActive) return; // Prevent duplicate trigger / reset
     isVoiceActive = true;
     playAudioCue('start');
     if (voiceInputBtn) voiceInputBtn.classList.add('listening');
+    if (onboardTestMic) onboardTestMic.classList.add('listening');
     if (micSvgIcon) micSvgIcon.style.display = 'none';
-    if (micStopBox) micStopBox.hidden = false;
-    if (voiceListeningContent) voiceListeningContent.hidden = false;
+    if (micStopBox) {
+      micStopBox.hidden = false;
+      micStopBox.style.display = 'block';
+    }
+    if (voiceListeningContent) {
+      voiceListeningContent.hidden = false;
+      voiceListeningContent.style.display = 'flex';
+    }
     if (voiceStatusLabel) voiceStatusLabel.textContent = 'Listening...';
     if (voiceHintMsg) voiceHintMsg.innerHTML = 'Listening... Speak naturally or click stop button';
     startVoiceAnimation();
@@ -807,12 +815,20 @@ function updateVoiceUI(status) {
     if (voiceStatusLabel) voiceStatusLabel.textContent = 'Transcribing...';
     if (voiceHintMsg) voiceHintMsg.textContent = 'Transcribing voice & applying AI cleanup...';
   } else {
+    if (!isVoiceActive && !voiceInputBtn?.classList.contains('listening')) return;
     if (isVoiceActive) playAudioCue('stop');
     isVoiceActive = false;
     if (voiceInputBtn) voiceInputBtn.classList.remove('listening');
-    if (micSvgIcon) micSvgIcon.style.display = '';
-    if (micStopBox) micStopBox.hidden = true;
-    if (voiceListeningContent) voiceListeningContent.hidden = true;
+    if (onboardTestMic) onboardTestMic.classList.remove('listening');
+    if (micSvgIcon) micSvgIcon.style.display = 'block';
+    if (micStopBox) {
+      micStopBox.hidden = true;
+      micStopBox.style.display = 'none';
+    }
+    if (voiceListeningContent) {
+      voiceListeningContent.hidden = true;
+      voiceListeningContent.style.display = 'none';
+    }
     if (voiceStatusLabel) voiceStatusLabel.textContent = 'Ready to Record';
     if (voiceHintMsg) voiceHintMsg.innerHTML = 'Click mic to dictate inside Utter or press <kbd>⌘⇧D</kbd> anywhere on your Mac';
     stopVoiceAnimation();
@@ -820,18 +836,25 @@ function updateVoiceUI(status) {
 }
 
 async function toggleVoiceDictation() {
-  try {
-    if (!isVoiceActive) {
-      if (voiceStatusLabel) voiceStatusLabel.textContent = 'Opening mic...';
+  if (!isVoiceActive) {
+    // 1. Optimistic feedback: turn on instantly
+    updateVoiceUI('Listening');
+    try {
       await invoke('start_dictation');
-    } else {
-      if (voiceStatusLabel) voiceStatusLabel.textContent = 'Stopping...';
-      await invoke('stop_dictation');
+    } catch (e) {
+      console.error('Mic start failed:', e);
+      updateVoiceUI('Idle');
+      if (voiceHintMsg) voiceHintMsg.textContent = `Mic error: ${e?.message ?? e}`;
+      if (voiceStatusLabel) voiceStatusLabel.textContent = 'Error';
     }
-  } catch (e) {
-    console.error('Mic toggle failed:', e);
-    if (voiceHintMsg) voiceHintMsg.textContent = `Mic error: ${e?.message ?? e}`;
-    if (voiceStatusLabel) voiceStatusLabel.textContent = 'Error';
+  } else {
+    // 2. Optimistic feedback: turn off instantly
+    updateVoiceUI('Idle');
+    try {
+      await invoke('stop_dictation');
+    } catch (e) {
+      console.error('Mic stop failed:', e);
+    }
   }
 }
 
@@ -921,7 +944,7 @@ async function handleAudioUpload(file) {
     updateHistoryUI();
 
     if (uploadStatusText) {
-      uploadStatusText.textContent = `✓ Transcribed "${name}" • Added to Recent Transcriptions!`;
+      uploadStatusText.textContent = `Transcribed "${name}" • Added to Recent Transcriptions!`;
       uploadStatusText.className = 'upload-status-text success';
     }
   }, 900);
@@ -988,12 +1011,12 @@ function updateSmartModeDisplay(app) {
   if (heroAppName) heroAppName.textContent = app.name || 'Active App';
   if (heroAppMode) {
     if (currentSmartMode === 'auto') {
-      heroAppMode.textContent = `${app.mode_label || 'Auto-Detect'} ${app.icon || '⚡'}`;
+      heroAppMode.textContent = app.mode_label || 'Auto-Detect';
     } else {
       const labels = {
-        code: 'Code Mode 💻',
-        chat: 'Casual Chat 💬',
-        pro:  'Pro Prose 📝',
+        code: 'Code Mode',
+        chat: 'Casual Chat',
+        pro:  'Pro Prose',
       };
       heroAppMode.textContent = labels[currentSmartMode] || 'Custom Mode';
     }
@@ -1175,7 +1198,7 @@ listen('transcript_partial', (event) => {
 listen('transcript_final', (event) => {
   if (event.payload?.text && onboardTestResult) {
     onboardTestResult.innerHTML = `<strong>Captured:</strong> "${event.payload.text}"`;
-    if (onboardTestHint) onboardTestHint.textContent = '✓ Voice Successfully Transcribed!';
+    if (onboardTestHint) onboardTestHint.textContent = 'Voice Successfully Transcribed!';
     if (onboardTestMic) onboardTestMic.classList.remove('listening');
   }
 });

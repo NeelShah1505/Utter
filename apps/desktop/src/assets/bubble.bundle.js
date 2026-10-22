@@ -196,7 +196,15 @@
       var STATE_CLASSES = ["state-idle", "state-listening", "state-transcribing", "state-error"];
       function updateAppBadge(app) {
         if (!app) return;
-        if (targetAppIcon) targetAppIcon.textContent = app.icon || "\u26A1";
+        if (targetAppIcon) {
+          if (app.mode === "code") {
+            targetAppIcon.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>';
+          } else if (app.mode === "chat") {
+            targetAppIcon.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+          } else {
+            targetAppIcon.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>';
+          }
+        }
         if (targetAppName) targetAppName.textContent = `${app.name} \u2022 ${app.mode_label || "Auto"}`;
       }
       function applyState(status, message = "", app = null) {
