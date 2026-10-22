@@ -1,5 +1,9 @@
 /* settings.css — High-Fidelity Minimalist Utter Studio UI */
 
+[hidden] {
+  display: none !important;
+}
+
 :root {
   /* Pristine Minimalist Light Theme (Apple-grade) */
   --bg:           #F9FAFB;
@@ -1190,11 +1194,12 @@ body {
   bottom: 0;
   left: 260px;
   right: 0;
-  height: 68px;
-  background: rgba(18, 18, 20, 0.85);
+  height: 64px;
+  background: var(--surface);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1732,12 +1737,22 @@ body {
   opacity: 0.6;
 }
 
-.nav-item-tour {
+.sidebar-btn-tour {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 500;
+  width: 100%;
+  cursor: pointer;
+  transition: all 180ms ease;
   color: #818cf8 !important;
   border: 1px dashed rgba(99, 102, 241, 0.35) !important;
   background: rgba(99, 102, 241, 0.05) !important;
 }
-.nav-item-tour:hover {
+.sidebar-btn-tour:hover {
   background: rgba(99, 102, 241, 0.12) !important;
   border-color: rgba(99, 102, 241, 0.6) !important;
   transform: translateY(-1px);
@@ -1919,6 +1934,11 @@ body {
   animation: fadeIn 250ms ease;
 }
 
+.onboarding-overlay[hidden],
+.onboarding-overlay.hidden {
+  display: none !important;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
@@ -1976,7 +1996,11 @@ body {
 }
 
 .onboarding-step {
-  display: flex;
+  display: none !important;
+}
+
+.onboarding-step.active {
+  display: flex !important;
   flex-direction: column;
   align-items: center;
   width: 100%;
@@ -1991,13 +2015,13 @@ body {
   font-size: 1.45rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--text);
+  color: #FFFFFF;
   margin-bottom: 8px;
 }
 
 .onboard-subtitle {
   font-size: 0.88rem;
-  color: var(--muted);
+  color: #94A3B8;
   line-height: 1.45;
   margin-bottom: 24px;
   max-width: 440px;
@@ -2021,11 +2045,11 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   font-size: 0.825rem;
-  color: var(--muted);
+  color: #CBD5E1;
   line-height: 1.4;
 }
 .onboard-feature-row strong {
-  color: var(--text);
+  color: #FFFFFF;
 }
 .onboard-feature-row .feat-icon {
   font-size: 1.1rem;

@@ -158,7 +158,7 @@
         dictionary: []
       };
       var dictHistory = JSON.parse(localStorage.getItem("utter_history") || "[]");
-      var navItems = document.querySelectorAll(".nav-item");
+      var navItems = document.querySelectorAll(".nav-item[data-tab]");
       var viewPanels = document.querySelectorAll(".view-panel");
       var hotkeyInput = document.getElementById("hotkey-input");
       var audioSelect = document.getElementById("audio-device-select");
@@ -189,13 +189,19 @@
       var cancelBtn = document.getElementById("cancel-btn");
       var saveStatus = document.getElementById("save-status");
       function switchTab(tabId) {
+        if (!tabId) return;
         navItems.forEach((btn) => {
           btn.classList.toggle("active", btn.getAttribute("data-tab") === tabId);
         });
         viewPanels.forEach((panel) => {
           panel.classList.toggle("active", panel.id === `view-${tabId}`);
         });
+        const saveToolbar = document.querySelector(".sticky-save-toolbar");
+        if (saveToolbar) {
+          saveToolbar.style.display = tabId === "settings" || tabId === "ai" ? "flex" : "none";
+        }
       }
+      switchTab("home");
       navItems.forEach((btn) => {
         btn.addEventListener("click", () => switchTab(btn.getAttribute("data-tab")));
       });
@@ -993,8 +999,10 @@
           dot.classList.toggle("active", parseInt(dot.dataset.step) === step);
         });
         document.querySelectorAll(".onboarding-step").forEach((s, idx) => {
-          s.hidden = idx + 1 !== step;
-          s.classList.toggle("active", idx + 1 === step);
+          const isCurrent = idx + 1 === step;
+          s.hidden = !isCurrent;
+          s.classList.toggle("active", isCurrent);
+          s.style.display = isCurrent ? "flex" : "none";
         });
         if (step === 2) {
           startMicMeterSimulation();
@@ -1088,12 +1096,14 @@
       function openOnboardingModal() {
         if (onboardingModal) {
           onboardingModal.hidden = false;
+          onboardingModal.style.display = "flex";
           setOnboardStep(1);
         }
       }
       function closeOnboardingModal() {
         if (onboardingModal) {
           onboardingModal.hidden = true;
+          onboardingModal.style.display = "none";
           stopMicMeterSimulation();
           localStorage.setItem("utter_onboarded", "true");
         }
@@ -1101,6 +1111,11 @@
       btnOpenTour?.addEventListener("click", openOnboardingModal);
       btnCloseOnboarding?.addEventListener("click", closeOnboardingModal);
       document.getElementById("btn-onboard-finish")?.addEventListener("click", closeOnboardingModal);
+      onboardingModal?.addEventListener("click", (e) => {
+        if (e.target === onboardingModal) {
+          closeOnboardingModal();
+        }
+      });
       listen("transcript_partial", (event) => {
         if (event.payload?.text && onboardTestResult && isVoiceActive) {
           onboardTestResult.textContent = `"${event.payload.text}"...`;
@@ -1123,8 +1138,9 @@
           localStorage.setItem("utter_sound_effects", toggleSoundEl.checked ? "true" : "false");
         });
       }
-      if (localStorage.getItem("utter_onboarded") !== "true") {
-        openOnboardingModal();
+      if (onboardingModal) {
+        onboardingModal.hidden = true;
+        onboardingModal.style.display = "none";
       }
     }
   });

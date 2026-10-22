@@ -22,7 +22,7 @@ let currentSettings = {
 let dictHistory = JSON.parse(localStorage.getItem('utter_history') || '[]');
 
 // DOM Elements
-const navItems          = document.querySelectorAll('.nav-item');
+const navItems          = document.querySelectorAll('.nav-item[data-tab]');
 const viewPanels        = document.querySelectorAll('.view-panel');
 const hotkeyInput       = document.getElementById('hotkey-input');
 const audioSelect       = document.getElementById('audio-device-select');
@@ -64,13 +64,21 @@ const saveStatus        = document.getElementById('save-status');
 // ---------------------------------------------------------------------------
 
 function switchTab(tabId) {
+  if (!tabId) return;
   navItems.forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
   });
   viewPanels.forEach(panel => {
     panel.classList.toggle('active', panel.id === `view-${tabId}`);
   });
+  const saveToolbar = document.querySelector('.sticky-save-toolbar');
+  if (saveToolbar) {
+    saveToolbar.style.display = (tabId === 'settings' || tabId === 'ai') ? 'flex' : 'none';
+  }
 }
+
+// Initial tab state
+switchTab('home');
 
 navItems.forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
@@ -1025,8 +1033,10 @@ function setOnboardStep(step) {
     dot.classList.toggle('active', parseInt(dot.dataset.step) === step);
   });
   document.querySelectorAll('.onboarding-step').forEach((s, idx) => {
-    s.hidden = (idx + 1) !== step;
-    s.classList.toggle('active', (idx + 1) === step);
+    const isCurrent = (idx + 1) === step;
+    s.hidden = !isCurrent;
+    s.classList.toggle('active', isCurrent);
+    s.style.display = isCurrent ? 'flex' : 'none';
   });
 
   if (step === 2) {
@@ -1130,6 +1140,7 @@ if (onboardTestMic) {
 function openOnboardingModal() {
   if (onboardingModal) {
     onboardingModal.hidden = false;
+    onboardingModal.style.display = 'flex';
     setOnboardStep(1);
   }
 }
@@ -1137,6 +1148,7 @@ function openOnboardingModal() {
 function closeOnboardingModal() {
   if (onboardingModal) {
     onboardingModal.hidden = true;
+    onboardingModal.style.display = 'none';
     stopMicMeterSimulation();
     localStorage.setItem('utter_onboarded', 'true');
   }
@@ -1145,6 +1157,13 @@ function closeOnboardingModal() {
 btnOpenTour?.addEventListener('click', openOnboardingModal);
 btnCloseOnboarding?.addEventListener('click', closeOnboardingModal);
 document.getElementById('btn-onboard-finish')?.addEventListener('click', closeOnboardingModal);
+
+// Close on backdrop click outside the card
+onboardingModal?.addEventListener('click', (e) => {
+  if (e.target === onboardingModal) {
+    closeOnboardingModal();
+  }
+});
 
 // Sync onboarding live dictation preview with engine events
 listen('transcript_partial', (event) => {
@@ -1173,8 +1192,9 @@ if (toggleSoundEl) {
   });
 }
 
-// Onboarding launch check on fresh install
-if (localStorage.getItem('utter_onboarded') !== 'true') {
-  openOnboardingModal();
+// Ensure onboarding modal is strictly hidden on launch so user enters the Studio Dashboard directly
+if (onboardingModal) {
+  onboardingModal.hidden = true;
+  onboardingModal.style.display = 'none';
 }
 

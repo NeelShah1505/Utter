@@ -53,7 +53,7 @@
 
         <div class="sidebar-divider"></div>
 
-        <button class="nav-item nav-item-tour" id="btn-open-tour" type="button">
+        <button class="sidebar-btn-tour" id="btn-open-tour" type="button">
           <span class="nav-icon">✨</span> <span class="nav-label">Setup Wizard</span>
         </button>
       </nav>
@@ -636,7 +636,7 @@
     </div>
 
     <!-- === Interactive Onboarding Wizard Modal === -->
-    <div class="onboarding-overlay" id="onboarding-modal" hidden>
+    <div class="onboarding-overlay" id="onboarding-modal" hidden style="display: none;">
       <div class="onboarding-card">
         <button type="button" class="btn-close-modal" id="btn-close-onboarding" title="Close tour">&times;</button>
         
@@ -688,7 +688,7 @@
         </div>
 
         <!-- Step 2: Microphone Calibration -->
-        <div class="onboarding-step" id="onboard-step-2" hidden>
+        <div class="onboarding-step" id="onboard-step-2" hidden style="display: none;">
           <div class="onboard-hero-logo">🎙️</div>
           <h2 class="onboard-title">Hardware Microphone Test</h2>
           <p class="onboard-subtitle">Speak out loud right now to calibrate and verify your microphone input level.</p>
@@ -707,7 +707,7 @@
         </div>
 
         <!-- Step 3: Accessibility Permission Guardian -->
-        <div class="onboarding-step" id="onboard-step-3" hidden>
+        <div class="onboarding-step" id="onboard-step-3" hidden style="display: none;">
           <div class="onboard-hero-logo">🛡️</div>
           <h2 class="onboard-title">macOS Accessibility Guardian</h2>
           <p class="onboard-subtitle">Required for Utter to insert your dictated text directly into active windows (Cursor, Slack, Chrome, Xcode).</p>
@@ -734,7 +734,7 @@
         </div>
 
         <!-- Step 4: Interactive Test Drive -->
-        <div class="onboarding-step" id="onboard-step-4" hidden>
+        <div class="onboarding-step" id="onboard-step-4" hidden style="display: none;">
           <div class="onboard-hero-logo">🚀</div>
           <h2 class="onboard-title">Your First Dictation</h2>
           <p class="onboard-subtitle">Click the mic button or hit <kbd>⌘⇧D</kbd> anywhere on your Mac and say a short test sentence.</p>
