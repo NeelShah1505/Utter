@@ -30,6 +30,11 @@ mod state;
 use state::new_shared_state;
 use tauri::{Emitter, Manager};
 
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn activate_app_to_front();
+}
+
 fn main() {
     // Initialise env_logger.
     // In release builds, default to 'info'. In debug builds, default to 'debug'.
@@ -83,7 +88,17 @@ fn main() {
             commands::update_history_item,
             commands::clear_history,
             commands::open_app_folder,
+            commands::get_active_app,
         ])
+        // --- Window event handler: hide settings window instead of closing it ---
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "settings" {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
+            }
+        })
         // --- Setup callback: runs once after the window is created ---
         .setup(move |app| {
             let handle = app.handle();
@@ -95,13 +110,14 @@ fn main() {
                 // Not fatal — app still works, just no hotkey.
             }
 
-            // macOS: hide the Dock icon (Utter lives in the menu bar)
-            #[cfg(target_os = "macos")]
-            {
-                use tauri::ActivationPolicy;
-                handle
-                    .set_activation_policy(ActivationPolicy::Accessory)
-                    .unwrap_or_else(|e| log::warn!("set_activation_policy: {e}"));
+            // Show and focus the studio dashboard on initial launch
+            if let Some(window) = handle.get_webview_window("settings") {
+                let _ = window.show();
+                let _ = window.set_focus();
+                #[cfg(target_os = "macos")]
+                unsafe {
+                    activate_app_to_front();
+                }
             }
 
             // Setup Tray Menu
@@ -126,6 +142,10 @@ fn main() {
                             let _ = app.emit("navigate_tab", "home");
                             let _ = window.show();
                             let _ = window.set_focus();
+                            #[cfg(target_os = "macos")]
+                            unsafe {
+                                activate_app_to_front();
+                            }
                         }
                     }
                     "settings" => {
@@ -133,6 +153,10 @@ fn main() {
                             let _ = app.emit("navigate_tab", "ai");
                             let _ = window.show();
                             let _ = window.set_focus();
+                            #[cfg(target_os = "macos")]
+                            unsafe {
+                                activate_app_to_front();
+                            }
                         }
                     }
                     "quit" => std::process::exit(0),
@@ -145,6 +169,18 @@ fn main() {
             log::info!("setup complete");
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("Tauri app error");
+        .build(tauri::generate_context!())
+        .expect("Tauri app error")
+        .run(|app_handle, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Some(window) = app_handle.get_webview_window("settings") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    unsafe {
+                        activate_app_to_front();
+                    }
+                }
+            }
+        });
 }

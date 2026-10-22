@@ -4,6 +4,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import AppKit
 
 public typealias TranscriptCallback = @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, Bool) -> Void
 
@@ -223,4 +224,36 @@ public func speechFreeStream(managerPtr: UnsafeMutableRawPointer) {
 @_cdecl("free_transcript")
 public func freeTranscript(ptr: UnsafeMutablePointer<CChar>?) {
     if let ptr = ptr { free(ptr) }
+}
+
+@_cdecl("get_frontmost_app_info")
+public func get_frontmost_app_info(
+    nameBuf: UnsafeMutablePointer<CChar>,
+    nameMax: Int,
+    bundleBuf: UnsafeMutablePointer<CChar>,
+    bundleMax: Int
+) -> Bool {
+    guard let app = NSWorkspace.shared.frontmostApplication else {
+        return false
+    }
+    let name = app.localizedName ?? "Desktop"
+    let bundle = app.bundleIdentifier ?? "com.apple.finder"
+    
+    _ = name.withCString { src in
+        strncpy(nameBuf, src, nameMax - 1)
+        nameBuf[nameMax - 1] = 0
+    }
+    _ = bundle.withCString { src in
+        strncpy(bundleBuf, src, bundleMax - 1)
+        bundleBuf[bundleMax - 1] = 0
+    }
+    return true
+}
+
+@_cdecl("activate_app_to_front")
+public func activate_app_to_front() {
+    DispatchQueue.main.async {
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
 }

@@ -115,8 +115,15 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         locked.capture_handle = Some(capture);
     }
 
+    let active_app = detect_active_app();
+    log::info!("Smart Routing detected target app: {} (mode: {})", active_app.name, active_app.mode_label);
+    let _ = app.emit("active_app_detected", &active_app);
+
     log::info!("Emitting state_change 'Listening' to frontend...");
-    let _ = app.emit("state_change", serde_json::json!({ "status": "Listening" }));
+    let _ = app.emit("state_change", serde_json::json!({ 
+        "status": "Listening",
+        "app": active_app 
+    }));
     
     // Show the main bubble window without stealing focus from user's active editor!
     if let Some(window) = app.get_webview_window("main") {
@@ -218,8 +225,36 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
     // Snapshot what was actually typed to the cursor during real-time streaming
     let streamed_str = last_streamed_arc.lock().expect("stream poisoned").clone();
 
-    // --- Optional cleanup pass ---
-    let backend = cleanup::build_backend(&cleanup_cfg);
+    // --- Optional cleanup pass with Context-Aware Smart Routing ---
+    let active_app = detect_active_app();
+    let mut cleanup_cfg_effective = cleanup_cfg.clone();
+    let context_directive = match active_app.mode.as_str() {
+        "code" => " Format the text cleanly for code comments, technical markdown, or code identifiers. Suppress conversational filler and accurately preserve technical terms and variable casing.",
+        "chat" => " Format the text as a natural, concise instant message with conversational punctuation.",
+        "email" => " Format the text as a polished, professional email with well-structured sentences and a polite tone.",
+        _ => " Fix grammar, remove filler words (um, uh, like), and polish punctuation into crisp, natural sentences.",
+    };
+
+    match cleanup_cfg_effective {
+        settings::CleanupConfig::OpenAiCompat { ref mut prompt, .. } => {
+            if prompt.is_none() || prompt.as_deref() == Some("") {
+                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
+            }
+        }
+        settings::CleanupConfig::LocalOllama { ref mut prompt, .. } => {
+            if prompt.is_none() || prompt.as_deref() == Some("") {
+                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
+            }
+        }
+        settings::CleanupConfig::RemoteOllama { ref mut prompt, .. } => {
+            if prompt.is_none() || prompt.as_deref() == Some("") {
+                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
+            }
+        }
+        _ => {}
+    }
+
+    let backend = cleanup::build_backend(&cleanup_cfg_effective);
     let mut final_text = if raw.is_empty() {
         String::new()
     } else {
@@ -496,3 +531,105 @@ pub fn open_app_folder() -> Result<()> {
     }
     Ok(())
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveAppInfo {
+    pub name: String,
+    pub bundle_id: String,
+    pub mode: String,
+    pub mode_label: String,
+    pub icon: String,
+}
+
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn get_frontmost_app_info(
+        name_buf: *mut std::os::raw::c_char,
+        name_max: usize,
+        bundle_buf: *mut std::os::raw::c_char,
+        bundle_max: usize,
+    ) -> bool;
+}
+
+pub fn detect_active_app() -> ActiveAppInfo {
+    #[cfg(target_os = "macos")]
+    {
+        let mut name_buf = [0 as std::os::raw::c_char; 256];
+        let mut bundle_buf = [0 as std::os::raw::c_char; 256];
+        let ok = unsafe {
+            get_frontmost_app_info(
+                name_buf.as_mut_ptr(),
+                256,
+                bundle_buf.as_mut_ptr(),
+                256,
+            )
+        };
+        if ok {
+            let name = unsafe { std::ffi::CStr::from_ptr(name_buf.as_ptr()) }
+                .to_string_lossy()
+                .into_owned();
+            let bundle_id = unsafe { std::ffi::CStr::from_ptr(bundle_buf.as_ptr()) }
+                .to_string_lossy()
+                .into_owned();
+            
+            let bundle_lower = bundle_id.to_lowercase();
+            let name_lower = name.to_lowercase();
+
+            let (mode, mode_label, icon) = if bundle_lower.contains("vscode")
+                || bundle_lower.contains("cursor")
+                || bundle_lower.contains("xcode")
+                || bundle_lower.contains("sublime")
+                || bundle_lower.contains("intellij")
+                || bundle_lower.contains("pycharm")
+                || bundle_lower.contains("terminal")
+                || bundle_lower.contains("iterm")
+                || bundle_lower.contains("ghostty")
+                || bundle_lower.contains("alacritty")
+                || bundle_lower.contains("kitty")
+                || name_lower.contains("cursor")
+                || name_lower.contains("code")
+                || name_lower.contains("terminal")
+            {
+                ("code".to_string(), "Code Mode".to_string(), "💻".to_string())
+            } else if bundle_lower.contains("slack")
+                || bundle_lower.contains("discord")
+                || bundle_lower.contains("whatsapp")
+                || bundle_lower.contains("telegram")
+                || bundle_lower.contains("messages")
+                || bundle_lower.contains("signal")
+            {
+                ("chat".to_string(), "Casual Chat".to_string(), "💬".to_string())
+            } else if bundle_lower.contains("mail")
+                || bundle_lower.contains("outlook")
+                || bundle_lower.contains("superhuman")
+                || bundle_lower.contains("spark")
+            {
+                ("email".to_string(), "Professional Email".to_string(), "✉️".to_string())
+            } else {
+                ("pro".to_string(), "Pro Document".to_string(), "📝".to_string())
+            };
+
+            return ActiveAppInfo {
+                name,
+                bundle_id,
+                mode,
+                mode_label,
+                icon,
+            };
+        }
+    }
+
+    ActiveAppInfo {
+        name: "Active App".to_string(),
+        bundle_id: "com.apple.generic".to_string(),
+        mode: "pro".to_string(),
+        mode_label: "Pro Document".to_string(),
+        icon: "📝".to_string(),
+    }
+}
+
+#[tauri::command]
+pub fn get_active_app() -> ActiveAppInfo {
+    detect_active_app()
+}
+

@@ -38,6 +38,7 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=Speech");
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=Foundation");
+        println!("cargo:rustc-link-lib=framework=AppKit");
         println!("cargo:rerun-if-changed=helpers/utter_transcribe.swift");
     }
     

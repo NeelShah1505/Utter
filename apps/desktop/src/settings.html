@@ -13,12 +13,24 @@
     <aside class="app-sidebar">
       <div class="brand-header">
         <div class="brand-logo">
-          <svg class="wave-icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            <line x1="12" y1="19" x2="12" y2="22"></line>
+          <svg class="brand-wave-icon" viewBox="0 0 32 32" width="30" height="30" fill="none">
+            <defs>
+              <linearGradient id="utterGradient" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#818cf8"/>
+                <stop offset="50%" stop-color="#6366f1"/>
+                <stop offset="100%" stop-color="#06b6d4"/>
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="9" fill="rgba(99, 102, 241, 0.16)" stroke="rgba(99, 102, 241, 0.45)" stroke-width="1.2"/>
+            <path d="M9 8v8a7 7 0 0 0 14 0V8" stroke="url(#utterGradient)" stroke-width="2.6" stroke-linecap="round"/>
+            <line x1="13" y1="12" x2="13" y2="17" stroke="url(#utterGradient)" stroke-width="2" stroke-linecap="round"/>
+            <line x1="16" y1="9" x2="16" y2="20" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="19" y1="12" x2="19" y2="17" stroke="url(#utterGradient)" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <span class="brand-title">Utter Studio</span>
+          <div class="brand-text-col">
+            <div class="brand-title">Utter <span class="brand-gradient">Studio</span></div>
+            <span class="brand-badge-offline">OFFLINE PRO</span>
+          </div>
         </div>
       </div>
 
@@ -38,9 +50,23 @@
         <button class="nav-item" data-tab="settings">
           <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span> <span class="nav-label">Settings</span>
         </button>
+
+        <div class="sidebar-divider"></div>
+
+        <button class="nav-item nav-item-tour" id="btn-open-tour" type="button">
+          <span class="nav-icon">✨</span> <span class="nav-label">Setup Wizard</span>
+        </button>
       </nav>
 
-      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-status-pill">
+          <span class="pulse-indicator"></span>
+          <div class="sidebar-status-meta">
+            <span class="meta-title">Engine Active</span>
+            <span class="meta-sub">100% Offline • Private</span>
+          </div>
+        </div>
+      </div>
     </aside>
 
     <!-- === Main Content Views === -->
@@ -49,8 +75,33 @@
       <!-- 🏠 HOME DASHBOARD TAB -->
       <section id="view-home" class="view-panel active">
         <header class="view-header">
-          <h1 class="welcome-heading">Welcome back, NEEL 👋</h1>
-          <p class="welcome-subheading">Your offline voice dictation engine is ready. Hold or click your hotkey anywhere in macOS to speak.</p>
+          <div class="hero-top-row">
+            <div>
+              <h1 class="welcome-heading">Welcome back, NEEL 👋</h1>
+              <p class="welcome-subheading">Your offline voice dictation engine is active. Hold or click your hotkey anywhere in macOS to speak.</p>
+            </div>
+            <div class="hero-engine-pill" id="hero-engine-pill">
+              <span class="pulse-indicator"></span>
+              <span class="hero-pill-text">Target: <strong id="hero-app-name">Active App</strong> • <span class="hero-mode-tag" id="hero-app-mode">Auto-Detect ⚡</span></span>
+            </div>
+          </div>
+
+          <!-- Smart Context Mode Bar -->
+          <div class="smart-mode-bar" id="smart-mode-bar">
+            <span class="mode-bar-label">Smart Context:</span>
+            <button type="button" class="mode-chip active" data-mode="auto" title="Automatically format based on frontmost app (Cursor, Slack, Mail, etc.)">
+              <span class="mode-icon">⚡</span> Auto-Detect
+            </button>
+            <button type="button" class="mode-chip" data-mode="code" title="Clean code comments, technical terms, and variable names">
+              <span class="mode-icon">💻</span> Code Mode
+            </button>
+            <button type="button" class="mode-chip" data-mode="chat" title="Natural instant messaging phrasing for Slack & WhatsApp">
+              <span class="mode-icon">💬</span> Casual Chat
+            </button>
+            <button type="button" class="mode-chip" data-mode="pro" title="Grammatically impeccable prose for docs & reports">
+              <span class="mode-icon">📝</span> Pro Prose
+            </button>
+          </div>
         </header>
 
         <!-- Studio Action Cards: Audio Upload & Voice Input (matching shadcn UI) -->
@@ -58,7 +109,6 @@
           
           <!-- Audio Upload Card (Left) -->
           <div class="studio-card audio-upload-card-wrapper" id="card-audio-upload">
-            <span class="card-badge-unlocked">Unlocked</span>
             <div class="upload-dropzone" id="audio-dropzone" tabindex="0" role="button" aria-label="Upload audio recording">
               <input type="file" id="audio-file-input" accept="audio/*" class="sr-only" style="display:none;">
               
@@ -87,26 +137,35 @@
 
           <!-- Voice Input Mic Card (Right) -->
           <div class="studio-card voice-input-card-wrapper" id="card-voice-input">
-            <span class="card-badge-unlocked">Unlocked</span>
-            <div class="voice-card-content">
-              <div class="voice-input-pill" id="voice-input-btn" role="button" tabindex="0" title="Click to dictate or use ⌘⇧D anywhere on Mac">
-                <div class="voice-icon-box">
-                  <svg id="mic-svg-icon" class="mic-icon-svg" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                    <line x1="12" y1="19" x2="12" y2="22"></line>
-                  </svg>
-                  <div id="mic-stop-box" class="mic-stop-spinner" hidden></div>
-                </div>
-                
-                <div id="voice-listening-content" class="voice-listening-elements" hidden>
-                  <div class="voice-bars-container" id="voice-freq-bars">
-                    <!-- 12 frequency wave bars populated by JS -->
+            <div class="voice-card-interactive-zone" id="voice-interactive-zone">
+              <div class="voice-card-content">
+                <div class="voice-input-pill" id="voice-input-btn" role="button" tabindex="0" title="Click to dictate or use ⌘⇧D anywhere on Mac" aria-label="Toggle voice dictation">
+                  <div class="voice-icon-box">
+                    <svg id="mic-svg-icon" class="mic-icon-svg" viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                      <line x1="12" y1="19" x2="12" y2="22"></line>
+                    </svg>
+                    <div id="mic-stop-box" class="mic-stop-spinner" hidden></div>
                   </div>
-                  <span class="voice-timer" id="voice-timer">00:00</span>
+                  
+                  <div id="voice-listening-content" class="voice-listening-elements" hidden>
+                    <div class="voice-bars-container" id="voice-freq-bars">
+                      <!-- 12 frequency wave bars populated by JS -->
+                    </div>
+                    <span class="voice-timer" id="voice-timer">00:00</span>
+                  </div>
+                </div>
+                <div class="voice-status-pill-sub" id="voice-status-sub">
+                  <span class="pulse-indicator"></span>
+                  <span id="voice-status-label">Ready to Record</span>
                 </div>
               </div>
-              <p class="voice-card-hint" id="voice-hint-msg">Click mic to dictate inside Utter or press <kbd>⌘⇧D</kbd> anywhere on your Mac</p>
+            </div>
+
+            <div class="card-text-footer">
+              <h3 class="card-title">Live Voice Dictation</h3>
+              <p class="card-desc" id="voice-hint-msg">Click mic to dictate inside Utter or press <kbd>⌘⇧D</kbd> anywhere on your Mac.</p>
             </div>
           </div>
 
@@ -471,11 +530,15 @@
               <h4>macOS Accessibility Permission</h4>
               <p>Required for Utter to insert transcribed text directly into active apps (Cursor, Xcode, Chrome, Slack, etc.).</p>
             </div>
-            <div class="setting-control" style="display: flex; align-items: center; gap: 12px;">
-              <span id="accessibility-badge" class="badge-status">Checking...</span>
-              <button type="button" id="btn-grant-accessibility" class="btn-system-perm">
-                <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                Open System Settings
+            <div class="perm-control-group">
+              <span id="accessibility-badge" class="perm-badge perm-badge-warning">
+                <span class="perm-dot perm-dot-warning"></span>
+                <span class="perm-text">Action Required</span>
+              </span>
+              <button type="button" id="btn-grant-accessibility" class="btn-system-perm" title="Open macOS Accessibility Settings">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <span>Open System Settings</span>
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" style="opacity: 0.65; margin-left: 2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               </button>
             </div>
           </div>
@@ -516,6 +579,32 @@
 
           <div class="setting-item-card">
             <div class="setting-desc">
+              <h4>Tactile Sound Feedback (Earcons)</h4>
+              <p>Play crisp, subtle audio chimes when voice dictation starts and stops.</p>
+            </div>
+            <div class="setting-control">
+              <label class="switch-toggle" title="Toggle audio feedback">
+                <input type="checkbox" id="toggle-sound-effects" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item-card">
+            <div class="setting-desc">
+              <h4>Smart Context Auto-Routing</h4>
+              <p>Automatically adapt voice formatting style based on active macOS application (Cursor, Slack, Mail).</p>
+            </div>
+            <div class="setting-control">
+              <label class="switch-toggle" title="Toggle context auto-routing">
+                <input type="checkbox" id="toggle-smart-routing" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item-card">
+            <div class="setting-desc">
               <h4>Local Data Storage & Privacy</h4>
               <p>Config: <code>~/Library/Application Support/Utter/config.toml</code><br/>History: <code>~/Library/Application Support/Utter/history.json</code><br/>API Keys: macOS Keychain (Hardware Encrypted)</p>
             </div>
@@ -543,6 +632,130 @@
       <div class="toolbar-actions">
         <button type="button" id="cancel-btn" class="btn-secondary">Discard Changes</button>
         <button type="button" id="save-btn" class="btn-primary-glow">Save Settings</button>
+      </div>
+    </div>
+
+    <!-- === Interactive Onboarding Wizard Modal === -->
+    <div class="onboarding-overlay" id="onboarding-modal" hidden>
+      <div class="onboarding-card">
+        <button type="button" class="btn-close-modal" id="btn-close-onboarding" title="Close tour">&times;</button>
+        
+        <!-- Step Indicator -->
+        <div class="onboarding-stepper">
+          <div class="step-dot active" data-step="1"></div>
+          <div class="step-dot" data-step="2"></div>
+          <div class="step-dot" data-step="3"></div>
+          <div class="step-dot" data-step="4"></div>
+        </div>
+
+        <!-- Step 1: Welcome -->
+        <div class="onboarding-step active" id="onboard-step-1">
+          <div class="onboard-hero-logo">
+            <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+              <defs>
+                <linearGradient id="onboardGrad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#818cf8"/>
+                  <stop offset="50%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+              <rect width="48" height="48" rx="14" fill="rgba(99, 102, 241, 0.2)" stroke="rgba(99, 102, 241, 0.6)" stroke-width="1.5"/>
+              <path d="M14 12v12a10 10 0 0 0 20 0V12" stroke="url(#onboardGrad)" stroke-width="3.5" stroke-linecap="round"/>
+              <line x1="20" y1="18" x2="20" y2="26" stroke="url(#onboardGrad)" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="24" y1="14" x2="24" y2="30" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+              <line x1="28" y1="18" x2="28" y2="26" stroke="url(#onboardGrad)" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h2 class="onboard-title">Welcome to Utter Studio</h2>
+          <p class="onboard-subtitle">Type at the speed of thought. 100% offline, zero telemetry, and ultra-low latency on macOS.</p>
+          
+          <div class="onboard-features-list">
+            <div class="onboard-feature-row">
+              <span class="feat-icon">⚡</span>
+              <div><strong>3x Faster Than Typing:</strong> Speak naturally anywhere in macOS and your words appear instantly.</div>
+            </div>
+            <div class="onboard-feature-row">
+              <span class="feat-icon">🔒</span>
+              <div><strong>100% Private & Offline:</strong> Runs locally on Apple Neural Engine. No accounts, no data logging.</div>
+            </div>
+            <div class="onboard-feature-row">
+              <span class="feat-icon">🎯</span>
+              <div><strong>Smart Context Routing:</strong> Automatically formats code for Cursor, chat for Slack, and email for Mail.</div>
+            </div>
+          </div>
+
+          <button type="button" class="btn-onboard-primary" id="btn-onboard-next-1">Get Started in 60s →</button>
+        </div>
+
+        <!-- Step 2: Microphone Calibration -->
+        <div class="onboarding-step" id="onboard-step-2" hidden>
+          <div class="onboard-hero-logo">🎙️</div>
+          <h2 class="onboard-title">Hardware Microphone Test</h2>
+          <p class="onboard-subtitle">Speak out loud right now to calibrate and verify your microphone input level.</p>
+          
+          <div class="mic-meter-box">
+            <div class="mic-bars-canvas" id="onboard-mic-bars">
+              <!-- Live decibel bars populated by JS -->
+            </div>
+            <span class="mic-meter-status" id="onboard-mic-status">Microphone active • Say something!</span>
+          </div>
+
+          <div class="onboard-btn-group">
+            <button type="button" class="btn-onboard-secondary" id="btn-onboard-back-2">← Back</button>
+            <button type="button" class="btn-onboard-primary" id="btn-onboard-next-2">Mic Looks Great →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Accessibility Permission Guardian -->
+        <div class="onboarding-step" id="onboard-step-3" hidden>
+          <div class="onboard-hero-logo">🛡️</div>
+          <h2 class="onboard-title">macOS Accessibility Guardian</h2>
+          <p class="onboard-subtitle">Required for Utter to insert your dictated text directly into active windows (Cursor, Slack, Chrome, Xcode).</p>
+          
+          <div class="perm-onboard-box">
+            <div class="perm-status-row-center">
+              <span id="onboard-perm-badge" class="perm-badge perm-badge-warning">
+                <span class="perm-dot perm-dot-warning"></span>
+                Action Required
+              </span>
+            </div>
+            <button type="button" id="btn-onboard-grant-access" class="btn-system-perm" style="margin-top: 14px;">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              <span>Open System Settings</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" style="opacity: 0.65; margin-left: 2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </button>
+            <p class="perm-onboard-hint">Turn on the toggle for <strong>Utter</strong> under <em>System Settings → Privacy & Security → Accessibility</em>.</p>
+          </div>
+
+          <div class="onboard-btn-group">
+            <button type="button" class="btn-onboard-secondary" id="btn-onboard-back-3">← Back</button>
+            <button type="button" class="btn-onboard-primary" id="btn-onboard-next-3">Continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Interactive Test Drive -->
+        <div class="onboarding-step" id="onboard-step-4" hidden>
+          <div class="onboard-hero-logo">🚀</div>
+          <h2 class="onboard-title">Your First Dictation</h2>
+          <p class="onboard-subtitle">Click the mic button or hit <kbd>⌘⇧D</kbd> anywhere on your Mac and say a short test sentence.</p>
+          
+          <div class="onboard-test-box">
+            <div class="voice-input-pill" id="onboard-test-mic-btn" role="button" tabindex="0">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="22"></line>
+              </svg>
+            </div>
+            <div class="onboard-test-hint" id="onboard-test-hint">Click mic to record test speech</div>
+            <div class="onboard-live-result" id="onboard-live-result">
+              <em>Spoken words will appear here in real-time...</em>
+            </div>
+          </div>
+
+          <button type="button" class="btn-onboard-primary btn-sparkle" id="btn-onboard-finish">Launch Utter Studio 🎉</button>
+        </div>
+
       </div>
     </div>
 

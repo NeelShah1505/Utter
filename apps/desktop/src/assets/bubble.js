@@ -12,12 +12,56 @@ import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 
 const body          = document.body;
-const transcriptEl  = document.getElementById('transcript-text');
-const statusLabel   = document.getElementById('status-label');
-const hintText      = document.getElementById('hint-text');
-const errorBox      = document.getElementById('error-box');
-const errorMessage  = document.getElementById('error-message');
-const dismissBtn    = document.getElementById('error-dismiss');
+const transcriptEl   = document.getElementById('transcript-text');
+const statusLabel    = document.getElementById('status-label');
+const hintText       = document.getElementById('hint-text');
+const errorBox       = document.getElementById('error-box');
+const errorMessage   = document.getElementById('error-message');
+const dismissBtn     = document.getElementById('error-dismiss');
+const targetAppChip  = document.getElementById('target-app-chip');
+const targetAppIcon  = document.getElementById('target-app-icon');
+const targetAppName  = document.getElementById('target-app-name');
+const bubbleWaveform = document.getElementById('bubble-waveform');
+
+// ---------------------------------------------------------------------------
+// Synthesizer Audio Cues (Earcons)
+// ---------------------------------------------------------------------------
+let audioCtx = null;
+function playAudioCue(type) {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'start') {
+      // Pleasant rising chime (C5 -> G5)
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.07);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    } else if (type === 'stop') {
+      // Gentle resolving chime (A5 -> E5)
+      osc.frequency.setValueAtTime(880.00, now);
+      osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.08);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    }
+  } catch (e) {
+    // Audio contexts might be blocked until user gesture, ignore gracefully
+  }
+}
 
 // ---------------------------------------------------------------------------
 // State → DOM mapping
@@ -25,17 +69,35 @@ const dismissBtn    = document.getElementById('error-dismiss');
 
 const STATE_CLASSES = ['state-idle', 'state-listening', 'state-transcribing', 'state-error'];
 
-function applyState(status, message = '') {
+function updateAppBadge(app) {
+  if (!app) return;
+  if (targetAppIcon) targetAppIcon.textContent = app.icon || '⚡';
+  if (targetAppName) targetAppName.textContent = `${app.name} • ${app.mode_label || 'Auto'}`;
+}
+
+function applyState(status, message = '', app = null) {
   STATE_CLASSES.forEach(c => body.classList.remove(c));
   body.classList.add(`state-${status.toLowerCase()}`);
 
   const labels = {
     Idle:         'Ready',
     Listening:    'Listening…',
-    Transcribing: 'Processing…',
+    Transcribing: 'Refining…',
     Error:        'Error',
   };
   statusLabel.textContent = labels[status] ?? status;
+
+  if (bubbleWaveform) {
+    bubbleWaveform.hidden = (status !== 'Listening');
+  }
+
+  if (app) updateAppBadge(app);
+
+  if (status === 'Listening') {
+    playAudioCue('start');
+  } else if (status === 'Idle') {
+    playAudioCue('stop');
+  }
 
   hintText.hidden = (status === 'Listening' || status === 'Transcribing');
 
@@ -57,7 +119,12 @@ function applyState(status, message = '') {
 async function init() {
   // state_change event — from hotkey handler and IPC commands
   await listen('state_change', ({ payload }) => {
-    applyState(payload.status, payload.message);
+    applyState(payload.status, payload.message, payload.app);
+  });
+
+  // active_app_detected event
+  await listen('active_app_detected', ({ payload }) => {
+    updateAppBadge(payload);
   });
 
   // transcript_partial — stream of partial results while listening
@@ -69,8 +136,16 @@ async function init() {
   await listen('transcript_final', ({ payload }) => {
     transcriptEl.textContent = payload.text;
     // Brief flash of the final text before clearing
-    setTimeout(() => applyState('Idle'), 1500);
+    setTimeout(() => applyState('Idle'), 1400);
   });
+
+  // Query initial active app
+  try {
+    const app = await invoke('get_active_app');
+    updateAppBadge(app);
+  } catch (e) {
+    // Ignore
+  }
 
   // Load initial status from backend
   try {

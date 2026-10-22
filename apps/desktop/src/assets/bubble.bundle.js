@@ -157,17 +157,67 @@
       var errorBox = document.getElementById("error-box");
       var errorMessage = document.getElementById("error-message");
       var dismissBtn = document.getElementById("error-dismiss");
+      var targetAppChip = document.getElementById("target-app-chip");
+      var targetAppIcon = document.getElementById("target-app-icon");
+      var targetAppName = document.getElementById("target-app-name");
+      var bubbleWaveform = document.getElementById("bubble-waveform");
+      var audioCtx = null;
+      function playAudioCue(type) {
+        try {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioCtx.state === "suspended") {
+            audioCtx.resume();
+          }
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          if (type === "start") {
+            osc.frequency.setValueAtTime(523.25, now);
+            osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.07);
+            gain.gain.setValueAtTime(0.06, now);
+            gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.11);
+            osc.start(now);
+            osc.stop(now + 0.11);
+          } else if (type === "stop") {
+            osc.frequency.setValueAtTime(880, now);
+            osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.08);
+            gain.gain.setValueAtTime(0.06, now);
+            gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.14);
+            osc.start(now);
+            osc.stop(now + 0.14);
+          }
+        } catch (e) {
+        }
+      }
       var STATE_CLASSES = ["state-idle", "state-listening", "state-transcribing", "state-error"];
-      function applyState(status, message = "") {
+      function updateAppBadge(app) {
+        if (!app) return;
+        if (targetAppIcon) targetAppIcon.textContent = app.icon || "\u26A1";
+        if (targetAppName) targetAppName.textContent = `${app.name} \u2022 ${app.mode_label || "Auto"}`;
+      }
+      function applyState(status, message = "", app = null) {
         STATE_CLASSES.forEach((c) => body.classList.remove(c));
         body.classList.add(`state-${status.toLowerCase()}`);
         const labels = {
           Idle: "Ready",
           Listening: "Listening\u2026",
-          Transcribing: "Processing\u2026",
+          Transcribing: "Refining\u2026",
           Error: "Error"
         };
         statusLabel.textContent = labels[status] ?? status;
+        if (bubbleWaveform) {
+          bubbleWaveform.hidden = status !== "Listening";
+        }
+        if (app) updateAppBadge(app);
+        if (status === "Listening") {
+          playAudioCue("start");
+        } else if (status === "Idle") {
+          playAudioCue("stop");
+        }
         hintText.hidden = status === "Listening" || status === "Transcribing";
         errorBox.hidden = status !== "Error";
         if (status === "Error" && message) {
@@ -179,15 +229,23 @@
       }
       async function init() {
         await listen("state_change", ({ payload }) => {
-          applyState(payload.status, payload.message);
+          applyState(payload.status, payload.message, payload.app);
+        });
+        await listen("active_app_detected", ({ payload }) => {
+          updateAppBadge(payload);
         });
         await listen("transcript_partial", ({ payload }) => {
           transcriptEl.textContent = payload.text || "";
         });
         await listen("transcript_final", ({ payload }) => {
           transcriptEl.textContent = payload.text;
-          setTimeout(() => applyState("Idle"), 1500);
+          setTimeout(() => applyState("Idle"), 1400);
         });
+        try {
+          const app = await invoke("get_active_app");
+          updateAppBadge(app);
+        } catch (e) {
+        }
         try {
           const status = await invoke("get_status");
           applyState(status.status ?? "Idle");

@@ -626,16 +626,29 @@ async function updateAccessibilityUI() {
   if (!accessBadge) return;
   try {
     const isGranted = await invoke('check_accessibility');
+    // Clear any previous inline styles
+    accessBadge.style.background = '';
+    accessBadge.style.color = '';
     if (isGranted) {
-      accessBadge.textContent = 'Granted';
-      accessBadge.className = 'badge-status';
-      accessBadge.style.background = 'rgba(34, 197, 94, 0.15)';
-      accessBadge.style.color = '#22c55e';
+      accessBadge.className = 'perm-badge perm-badge-success';
+      accessBadge.innerHTML = '<span class="perm-dot perm-dot-success"></span><span class="perm-text">Granted</span>';
+      if (grantAccessBtn) {
+        grantAccessBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>System Settings</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" style="opacity: 0.65; margin-left: 2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        `;
+      }
     } else {
-      accessBadge.textContent = 'Action Required';
-      accessBadge.className = 'badge-status';
-      accessBadge.style.background = 'rgba(234, 179, 8, 0.15)';
-      accessBadge.style.color = '#eab308';
+      accessBadge.className = 'perm-badge perm-badge-warning';
+      accessBadge.innerHTML = '<span class="perm-dot perm-dot-warning"></span><span class="perm-text">Action Required</span>';
+      if (grantAccessBtn) {
+        grantAccessBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>Open System Settings</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" style="opacity: 0.65; margin-left: 2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        `;
+      }
     }
   } catch (e) {
     console.error('Failed to check accessibility:', e);
@@ -677,6 +690,8 @@ const voiceListeningContent = document.getElementById('voice-listening-content')
 const voiceFreqBars       = document.getElementById('voice-freq-bars');
 const voiceTimer          = document.getElementById('voice-timer');
 const voiceHintMsg        = document.getElementById('voice-hint-msg');
+const voiceStatusLabel    = document.getElementById('voice-status-label');
+const voiceInteractiveZone = document.getElementById('voice-interactive-zone');
 
 let isVoiceActive = false;
 let voiceSeconds = 0;
@@ -732,40 +747,102 @@ function stopVoiceAnimation() {
   if (voiceTimer) voiceTimer.textContent = '00:00';
 }
 
+// ---------------------------------------------------------------------------
+// Synthesizer Audio Cues (Earcons)
+// ---------------------------------------------------------------------------
+let settingsAudioCtx = null;
+function playAudioCue(type) {
+  const toggleSound = document.getElementById('toggle-sound-effects');
+  if (toggleSound && !toggleSound.checked) return;
+  try {
+    if (!settingsAudioCtx) {
+      settingsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (settingsAudioCtx.state === 'suspended') {
+      settingsAudioCtx.resume();
+    }
+    const now = settingsAudioCtx.currentTime;
+    const osc = settingsAudioCtx.createOscillator();
+    const gain = settingsAudioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(settingsAudioCtx.destination);
+    if (type === 'start') {
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.07);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    } else if (type === 'stop') {
+      osc.frequency.setValueAtTime(880.00, now);
+      osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.08);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    }
+  } catch (e) {}
+}
+
 function updateVoiceUI(status) {
   if (status === 'Listening') {
     isVoiceActive = true;
+    playAudioCue('start');
     if (voiceInputBtn) voiceInputBtn.classList.add('listening');
     if (micSvgIcon) micSvgIcon.style.display = 'none';
     if (micStopBox) micStopBox.hidden = false;
     if (voiceListeningContent) voiceListeningContent.hidden = false;
+    if (voiceStatusLabel) voiceStatusLabel.textContent = 'Listening...';
     if (voiceHintMsg) voiceHintMsg.innerHTML = 'Listening... Speak naturally or click stop button';
     startVoiceAnimation();
   } else if (status === 'Transcribing') {
+    if (voiceStatusLabel) voiceStatusLabel.textContent = 'Transcribing...';
     if (voiceHintMsg) voiceHintMsg.textContent = 'Transcribing voice & applying AI cleanup...';
   } else {
+    if (isVoiceActive) playAudioCue('stop');
     isVoiceActive = false;
     if (voiceInputBtn) voiceInputBtn.classList.remove('listening');
     if (micSvgIcon) micSvgIcon.style.display = '';
     if (micStopBox) micStopBox.hidden = true;
     if (voiceListeningContent) voiceListeningContent.hidden = true;
+    if (voiceStatusLabel) voiceStatusLabel.textContent = 'Ready to Record';
     if (voiceHintMsg) voiceHintMsg.innerHTML = 'Click mic to dictate inside Utter or press <kbd>⌘⇧D</kbd> anywhere on your Mac';
     stopVoiceAnimation();
   }
 }
 
-if (voiceInputBtn) {
-  voiceInputBtn.addEventListener('click', async () => {
-    try {
-      if (!isVoiceActive) {
-        await invoke('start_dictation');
-      } else {
-        await invoke('stop_dictation');
-      }
-    } catch (e) {
-      console.error('Mic toggle failed:', e);
-      if (voiceHintMsg) voiceHintMsg.textContent = `Mic error: ${e?.message ?? e}`;
+async function toggleVoiceDictation() {
+  try {
+    if (!isVoiceActive) {
+      if (voiceStatusLabel) voiceStatusLabel.textContent = 'Opening mic...';
+      await invoke('start_dictation');
+    } else {
+      if (voiceStatusLabel) voiceStatusLabel.textContent = 'Stopping...';
+      await invoke('stop_dictation');
     }
+  } catch (e) {
+    console.error('Mic toggle failed:', e);
+    if (voiceHintMsg) voiceHintMsg.textContent = `Mic error: ${e?.message ?? e}`;
+    if (voiceStatusLabel) voiceStatusLabel.textContent = 'Error';
+  }
+}
+
+if (voiceInputBtn) {
+  voiceInputBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleVoiceDictation();
+  });
+  voiceInputBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleVoiceDictation();
+    }
+  });
+}
+
+if (voiceInteractiveZone) {
+  voiceInteractiveZone.addEventListener('click', () => {
+    toggleVoiceDictation();
   });
 }
 
@@ -885,3 +962,219 @@ if (btnRemoveAudio) {
     }
   });
 }
+
+// ---------------------------------------------------------------------------
+// 8. Smart Context Mode Bar & Active App Detection
+// ---------------------------------------------------------------------------
+
+const heroAppName    = document.getElementById('hero-app-name');
+const heroAppMode   = document.getElementById('hero-app-mode');
+const smartModeChips = document.querySelectorAll('.mode-chip');
+
+let currentDetectedApp = null;
+let currentSmartMode   = 'auto';
+
+function updateSmartModeDisplay(app) {
+  if (!app) return;
+  currentDetectedApp = app;
+  if (heroAppName) heroAppName.textContent = app.name || 'Active App';
+  if (heroAppMode) {
+    if (currentSmartMode === 'auto') {
+      heroAppMode.textContent = `${app.mode_label || 'Auto-Detect'} ${app.icon || '⚡'}`;
+    } else {
+      const labels = {
+        code: 'Code Mode 💻',
+        chat: 'Casual Chat 💬',
+        pro:  'Pro Prose 📝',
+      };
+      heroAppMode.textContent = labels[currentSmartMode] || 'Custom Mode';
+    }
+  }
+}
+
+smartModeChips.forEach((chip) => {
+  chip.addEventListener('click', () => {
+    smartModeChips.forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentSmartMode = chip.dataset.mode;
+    if (currentDetectedApp) updateSmartModeDisplay(currentDetectedApp);
+  });
+});
+
+listen('active_app_detected', ({ payload }) => {
+  updateSmartModeDisplay(payload);
+});
+
+// Fetch active app on page load
+invoke('get_active_app')
+  .then(updateSmartModeDisplay)
+  .catch((err) => console.warn('get_active_app failed:', err));
+
+// ---------------------------------------------------------------------------
+// 9. Interactive Onboarding Wizard Controller
+// ---------------------------------------------------------------------------
+
+const onboardingModal   = document.getElementById('onboarding-modal');
+const btnOpenTour       = document.getElementById('btn-open-tour');
+const btnCloseOnboarding = document.getElementById('btn-close-onboarding');
+
+let micSimInterval = null;
+
+function setOnboardStep(step) {
+  document.querySelectorAll('.step-dot').forEach((dot) => {
+    dot.classList.toggle('active', parseInt(dot.dataset.step) === step);
+  });
+  document.querySelectorAll('.onboarding-step').forEach((s, idx) => {
+    s.hidden = (idx + 1) !== step;
+    s.classList.toggle('active', (idx + 1) === step);
+  });
+
+  if (step === 2) {
+    startMicMeterSimulation();
+  } else {
+    stopMicMeterSimulation();
+  }
+
+  if (step === 3) {
+    checkOnboardAccessibility();
+  }
+}
+
+function startMicMeterSimulation() {
+  const container = document.getElementById('onboard-mic-bars');
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 0; i < 24; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'meter-bar';
+    bar.style.height = '6px';
+    container.appendChild(bar);
+  }
+  if (micSimInterval) clearInterval(micSimInterval);
+  micSimInterval = setInterval(() => {
+    const bars = container.querySelectorAll('.meter-bar');
+    bars.forEach((b) => {
+      const h = Math.floor(4 + Math.random() * 28);
+      b.style.height = `${h}px`;
+      b.style.background = h > 20 ? '#818cf8' : '#34d399';
+    });
+  }, 90);
+}
+
+function stopMicMeterSimulation() {
+  if (micSimInterval) {
+    clearInterval(micSimInterval);
+    micSimInterval = null;
+  }
+}
+
+async function checkOnboardAccessibility() {
+  const badge = document.getElementById('onboard-perm-badge');
+  if (!badge) return;
+  try {
+    const isGranted = await invoke('check_accessibility');
+    if (isGranted) {
+      badge.className = 'perm-badge perm-badge-success';
+      badge.innerHTML = '<span class="perm-dot perm-dot-success"></span>Granted';
+    } else {
+      badge.className = 'perm-badge perm-badge-warning';
+      badge.innerHTML = '<span class="perm-dot perm-dot-warning"></span>Action Required';
+    }
+  } catch (e) {
+    console.warn('onboard perm check failed:', e);
+  }
+}
+
+document.getElementById('btn-onboard-next-1')?.addEventListener('click', () => setOnboardStep(2));
+document.getElementById('btn-onboard-back-2')?.addEventListener('click', () => setOnboardStep(1));
+document.getElementById('btn-onboard-next-2')?.addEventListener('click', () => setOnboardStep(3));
+document.getElementById('btn-onboard-back-3')?.addEventListener('click', () => setOnboardStep(2));
+document.getElementById('btn-onboard-next-3')?.addEventListener('click', () => setOnboardStep(4));
+
+document.getElementById('btn-onboard-grant-access')?.addEventListener('click', async () => {
+  try {
+    await invoke('request_accessibility');
+    setTimeout(checkOnboardAccessibility, 1500);
+  } catch (e) {
+    console.error('grant access failed:', e);
+  }
+});
+
+const onboardTestMic    = document.getElementById('onboard-test-mic-btn');
+const onboardTestResult = document.getElementById('onboard-live-result');
+const onboardTestHint   = document.getElementById('onboard-test-hint');
+
+if (onboardTestMic) {
+  onboardTestMic.addEventListener('click', async () => {
+    if (!isVoiceActive) {
+      onboardTestMic.classList.add('listening');
+      if (onboardTestHint) onboardTestHint.textContent = 'Listening... Speak your test phrase now!';
+      if (onboardTestResult) onboardTestResult.textContent = 'Recording in progress...';
+      try {
+        await invoke('start_dictation');
+      } catch (e) {
+        console.error('start dictation failed:', e);
+      }
+    } else {
+      onboardTestMic.classList.remove('listening');
+      if (onboardTestHint) onboardTestHint.textContent = 'Transcribing voice...';
+      try {
+        await invoke('stop_dictation');
+      } catch (e) {
+        console.error('stop dictation failed:', e);
+      }
+    }
+  });
+}
+
+function openOnboardingModal() {
+  if (onboardingModal) {
+    onboardingModal.hidden = false;
+    setOnboardStep(1);
+  }
+}
+
+function closeOnboardingModal() {
+  if (onboardingModal) {
+    onboardingModal.hidden = true;
+    stopMicMeterSimulation();
+    localStorage.setItem('utter_onboarded', 'true');
+  }
+}
+
+btnOpenTour?.addEventListener('click', openOnboardingModal);
+btnCloseOnboarding?.addEventListener('click', closeOnboardingModal);
+document.getElementById('btn-onboard-finish')?.addEventListener('click', closeOnboardingModal);
+
+// Sync onboarding live dictation preview with engine events
+listen('transcript_partial', (event) => {
+  if (event.payload?.text && onboardTestResult && isVoiceActive) {
+    onboardTestResult.textContent = `"${event.payload.text}"...`;
+  }
+});
+
+listen('transcript_final', (event) => {
+  if (event.payload?.text && onboardTestResult) {
+    onboardTestResult.innerHTML = `<strong>Captured:</strong> "${event.payload.text}"`;
+    if (onboardTestHint) onboardTestHint.textContent = '✓ Voice Successfully Transcribed!';
+    if (onboardTestMic) onboardTestMic.classList.remove('listening');
+  }
+});
+
+// Sound toggle persistence
+const toggleSoundEl = document.getElementById('toggle-sound-effects');
+if (toggleSoundEl) {
+  const saved = localStorage.getItem('utter_sound_effects');
+  if (saved !== null) {
+    toggleSoundEl.checked = (saved === 'true');
+  }
+  toggleSoundEl.addEventListener('change', () => {
+    localStorage.setItem('utter_sound_effects', toggleSoundEl.checked ? 'true' : 'false');
+  });
+}
+
+// Onboarding launch check on fresh install
+if (localStorage.getItem('utter_onboarded') !== 'true') {
+  openOnboardingModal();
+}
+

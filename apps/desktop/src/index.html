@@ -22,9 +22,26 @@
   -->
 
   <div class="bubble" id="bubble" role="status" aria-live="polite" aria-atomic="false">
-    <div class="bubble__status" id="status-bar">
-      <span class="status-dot" id="status-dot" aria-hidden="true"></span>
-      <span class="status-label" id="status-label">Ready</span>
+    <div class="bubble__header">
+      <div class="bubble__status" id="status-bar">
+        <span class="status-indicator" id="status-dot" aria-hidden="true"></span>
+        <span class="status-label" id="status-label">Ready</span>
+      </div>
+
+      <!-- Active target app chip -->
+      <div class="target-app-chip" id="target-app-chip">
+        <span id="target-app-icon">⚡</span>
+        <span id="target-app-name">Auto-Detect</span>
+      </div>
+
+      <!-- Live audio resonance wave bars -->
+      <div class="bubble-waveform" id="bubble-waveform" hidden>
+        <span class="b-bar"></span>
+        <span class="b-bar"></span>
+        <span class="b-bar"></span>
+        <span class="b-bar"></span>
+        <span class="b-bar"></span>
+      </div>
     </div>
 
     <p class="bubble__text" id="transcript-text">
@@ -32,7 +49,7 @@
     </p>
 
     <p class="bubble__hint" id="hint-text">
-      Press <kbd>⌘⇧D</kbd> to start · press again to stop
+      Press <kbd>⌘⇧D</kbd> anywhere to speak · press again to insert
     </p>
 
     <div class="bubble__error" id="error-box" hidden>
