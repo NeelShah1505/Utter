@@ -155,8 +155,13 @@ impl AsrEngine for MacOsSpeechEngine {
         // Tell Swift to finish the audio buffer
         unsafe { speech_end_stream(s.swift_ptr); }
         
-        // Wait for the final callback
-        let final_transcript = s.final_rx.recv().unwrap_or_default();
+        // Wait for final callback with timeout to guarantee no indefinite hangs
+        let final_transcript = s.final_rx
+            .recv_timeout(std::time::Duration::from_millis(600))
+            .unwrap_or_else(|_| {
+                let state = unsafe { &*s.state_ptr };
+                state.latest_transcript.lock().unwrap().clone()
+            });
         
         // Cleanup memory
         unsafe {

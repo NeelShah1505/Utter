@@ -724,14 +724,16 @@ function startVoiceAnimation() {
   }
 
   if (voiceWaveTimer) clearInterval(voiceWaveTimer);
+  const centerWeights = [0.35, 0.55, 0.75, 0.95, 1.0, 1.0, 0.95, 0.85, 0.65, 0.5, 0.35, 0.2];
   voiceWaveTimer = setInterval(() => {
     if (!voiceFreqBars) return;
     const bars = voiceFreqBars.querySelectorAll('.voice-freq-bar');
-    bars.forEach((b) => {
-      const h = Math.floor(3 + Math.random() * 14);
+    bars.forEach((b, idx) => {
+      const weight = centerWeights[idx] || 0.5;
+      const h = Math.floor(3 + Math.random() * 18 * weight);
       b.style.height = `${h}px`;
     });
-  }, 120);
+  }, 85);
 
   if (voiceTimerTimer) clearInterval(voiceTimerTimer);
   voiceSeconds = 0;
@@ -799,15 +801,6 @@ function updateVoiceUI(status) {
     playAudioCue('start');
     if (voiceInputBtn) voiceInputBtn.classList.add('listening');
     if (onboardTestMic) onboardTestMic.classList.add('listening');
-    if (micSvgIcon) micSvgIcon.style.display = 'none';
-    if (micStopBox) {
-      micStopBox.hidden = false;
-      micStopBox.style.display = 'block';
-    }
-    if (voiceListeningContent) {
-      voiceListeningContent.hidden = false;
-      voiceListeningContent.style.display = 'flex';
-    }
     if (voiceStatusLabel) voiceStatusLabel.textContent = 'Listening...';
     if (voiceHintMsg) voiceHintMsg.innerHTML = 'Listening... Speak naturally or click stop button';
     startVoiceAnimation();
@@ -815,20 +808,11 @@ function updateVoiceUI(status) {
     if (voiceStatusLabel) voiceStatusLabel.textContent = 'Transcribing...';
     if (voiceHintMsg) voiceHintMsg.textContent = 'Transcribing voice & applying AI cleanup...';
   } else {
-    if (!isVoiceActive && !voiceInputBtn?.classList.contains('listening')) return;
+    // Idle / Stopped / Error
     if (isVoiceActive) playAudioCue('stop');
     isVoiceActive = false;
     if (voiceInputBtn) voiceInputBtn.classList.remove('listening');
     if (onboardTestMic) onboardTestMic.classList.remove('listening');
-    if (micSvgIcon) micSvgIcon.style.display = 'block';
-    if (micStopBox) {
-      micStopBox.hidden = true;
-      micStopBox.style.display = 'none';
-    }
-    if (voiceListeningContent) {
-      voiceListeningContent.hidden = true;
-      voiceListeningContent.style.display = 'none';
-    }
     if (voiceStatusLabel) voiceStatusLabel.textContent = 'Ready to Record';
     if (voiceHintMsg) voiceHintMsg.innerHTML = 'Click mic to dictate inside Utter or press <kbd>⌘⇧D</kbd> anywhere on your Mac';
     stopVoiceAnimation();
@@ -850,10 +834,15 @@ async function toggleVoiceDictation() {
   } else {
     // 2. Optimistic feedback: turn off instantly
     updateVoiceUI('Idle');
+    if (voiceStatusLabel) voiceStatusLabel.textContent = 'Finalizing...';
     try {
       await invoke('stop_dictation');
     } catch (e) {
       console.error('Mic stop failed:', e);
+    } finally {
+      if (voiceStatusLabel && voiceStatusLabel.textContent === 'Finalizing...') {
+        voiceStatusLabel.textContent = 'Ready to Record';
+      }
     }
   }
 }
@@ -871,8 +860,16 @@ if (voiceInputBtn) {
   });
 }
 
+if (micStopBox) {
+  micStopBox.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleVoiceDictation();
+  });
+}
+
 if (voiceInteractiveZone) {
-  voiceInteractiveZone.addEventListener('click', () => {
+  voiceInteractiveZone.addEventListener('click', (e) => {
+    if (e.target.closest('#voice-input-btn')) return;
     toggleVoiceDictation();
   });
 }
