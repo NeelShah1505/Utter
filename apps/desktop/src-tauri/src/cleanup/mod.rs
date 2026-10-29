@@ -50,6 +50,10 @@ impl From<CleanupError> for AppError {
 
 /// The cleanup backend contract.
 /// Every backend must be Send + Sync — they are shared across async tasks.
+// `async_trait` desugars `refine` to a `Pin<Box<dyn Future>>` and adds its own
+// `#[must_use]`; that collides with clippy's double_must_use on the already
+// must_use future type. The attribute is macro-generated, so allow it here.
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 pub trait CleanupBackend: Send + Sync {
     /// Refine the raw transcript. Returns the cleaned string.

@@ -21,7 +21,10 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned: `clippy -D warnings` is deterministic only against a fixed
+      # toolchain. A floating `stable` adds new lints every six weeks and would
+      # break CI on unrelated PRs. Bump this deliberately.
+      - uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: clippy, rustfmt
       - name: Format check

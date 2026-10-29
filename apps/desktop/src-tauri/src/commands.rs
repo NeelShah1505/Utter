@@ -309,23 +309,18 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         }
     };
 
-    match cleanup_cfg_effective {
-        settings::CleanupConfig::OpenAiCompat { ref mut prompt, .. } => {
-            if prompt.is_none() || prompt.as_deref() == Some("") {
-                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
-            }
+    // All three LLM backends share one default system prompt; fill it in only
+    // when the user left the prompt blank.
+    let prompt_slot = match cleanup_cfg_effective {
+        settings::CleanupConfig::OpenAiCompat { ref mut prompt, .. }
+        | settings::CleanupConfig::LocalOllama { ref mut prompt, .. }
+        | settings::CleanupConfig::RemoteOllama { ref mut prompt, .. } => Some(prompt),
+        settings::CleanupConfig::None => None,
+    };
+    if let Some(prompt) = prompt_slot {
+        if prompt.is_none() || prompt.as_deref() == Some("") {
+            *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
         }
-        settings::CleanupConfig::LocalOllama { ref mut prompt, .. } => {
-            if prompt.is_none() || prompt.as_deref() == Some("") {
-                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
-            }
-        }
-        settings::CleanupConfig::RemoteOllama { ref mut prompt, .. } => {
-            if prompt.is_none() || prompt.as_deref() == Some("") {
-                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
-            }
-        }
-        _ => {}
     }
 
     let backend = cleanup::build_backend(&cleanup_cfg_effective);
