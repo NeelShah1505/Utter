@@ -50,6 +50,9 @@ pub struct AppState {
 
     /// Current user settings (loaded from disk at startup, updated by set_settings).
     pub settings: Settings,
+
+    /// Shown in Studio when the hotkey could not be registered. Not a crash.
+    pub startup_warning: Option<String>,
 }
 
 pub fn unpoison<T>(result: std::sync::LockResult<T>) -> T {
@@ -67,6 +70,7 @@ impl AppState {
             engine:         None,
             audio_feeder:   None,
             settings:       settings::load(),
+            startup_warning: None,
         }
     }
 }

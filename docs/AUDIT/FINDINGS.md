@@ -17,12 +17,12 @@ Severity: S0 ship-blocker, S1 major, S2 moderate, S3 polish.
 | F-009 | S1 | Security | Cleanup | HTTP was allowed to any host. Redirects followed. No response cap. Ollama posted to `/v1/chat/completions` and parsed the native `{message.content}` shape, so a normal Ollama reply failed the parse and was silently dropped. | Fixed: https, or http on localhost only; no userinfo in the URL; redirects refused; 32KB cap; both JSON shapes accepted. |
 | F-010 | S0 | Rust | Engines | `whisper_cpp.rs` and `apple_silicon.rs` `panic!` in `init`. Non-macOS builds select the whisper engine. | Fixed: `init` returns `EngineError::NotImplemented`, mapped to `E_ENGINE_UNAVAILABLE`. Those builds are not shipped. |
 | F-011 | S1 | Rust | Audio | The cpal callback locked a buffer and called into Swift. | Fixed: the callback only `try_send`s. A thread named `utter-audio-feed` calls `feed_audio`. The callback still allocates a `Vec` per chunk. |
-| F-012 | S2 | QA | Logs | `get_logs` returned `vec![]`. | It now reads `~/Library/Logs/Utter/crash.log`. There is still no live ring buffer. Nothing in the UI calls `get_logs`. |
+| F-012 | S2 | QA | Logs | `get_logs` returned `vec![]`. | Settings has Copy diagnostics. The report is version, status, cleanup type, startup warning, and `crash.log`. No transcripts and no API keys. |
 | F-013 | S1 | Platform | Locale | `utter_transcribe.swift` uses `Locale(identifier: "en-US")` only. | Open. Documented. Not a silent fallback to another language. |
 | F-014 | S0 | Release | Signing | `tauri.conf.json` has `"signingIdentity": null`. No notarization, no stapler, no updater keys. | Open. Needs an Apple Developer ID. Not invented here. |
 | F-015 | S2 | Hygiene | Repo | Unused React files in `components/ui/` and `apps/desktop/src/components/ui/`. | Deleted. |
 | F-016 | S0 | Product | Site | Homepage said "Everywhere" and "macOS and Windows", and the engine column said FluidAudio and whisper.cpp. | Copy now says macOS Apple Silicon, Apple on-device English. Unsupported rows say "Not shipped" and are not links. |
-| F-017 | S2 | UX | Hotkey | `main.rs` logs a failed hotkey registration and continues. The UI does not say the hotkey is dead. | Open. |
+| F-017 | S2 | UX | Hotkey | `main.rs` logged a failed hotkey registration and continued. | Studio shows a banner from `get_startup_warning`. Saving a hotkey that fails returns that error to the save button. |
 | F-018 | S2 | Product | Dictionary | Default dictionary rewrote "neel" to "NEEL" and "utter" to "Utter Flow". | Default is empty. Existing `config.toml` files are left alone. |
 | F-019 | S1 | Security | Logs | `stop_dictation` logged the raw and final transcript with `{:?}`. | Logs the character count only. |
 | F-020 | S1 | UX | Newlines | A cleanup model can return newlines. Typing Return in Slack or Terminal can send or run a command. | `sanitize_insertion` turns newlines, tabs, and ESC sequences into spaces or nothing. Tested. |

@@ -8,17 +8,21 @@
 
 ## Project Identity
 
-- **Name (working): Utter (rename pending — see Decision D-002)
-- **Tagline:** "Type with your voice. Everywhere. Offline."
+- **Name:** Utter
+- **What it is:** macOS Apple Silicon dictation. Apple on-device speech, English (US). Optional cleanup is off until enabled.
 - **License:** MIT
-- **Repo (intended):** `github.com/NeelShah1505/Utter` (org TBD — see Open Question Q-001)
-- **Status:** Phase 0 — scaffold + marketing site (this session's scope)
+- **Repo:** `github.com/NeelShah1505/Utter`
+- **Status:** Desktop app exists. Not notarized. Not ready for a public launch. See `docs/AUDIT/03-release-readiness.md`.
 
 ---
 
 ## Current Phase
 
-### Phase 0 (CURRENT — this session)
+### Current (2026-10-29)
+
+The phase list below is the original plan. It is not the status. The app uses Apple Speech, not Parakeet, and it does not ship Windows or Intel builds.
+
+### Phase 0 (historical — this session)
 - [x] Repo scaffold created
 - [x] `docs/` populated (this commit)
 - [x] `apps/desktop/` empty Tauri scaffold placeholder

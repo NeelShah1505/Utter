@@ -401,16 +401,63 @@ pub fn set_settings(
     
     // Unregister old hotkeys and register the new one
     let _ = crate::hotkey::unregister_all(&app);
-    if let Err(e) = crate::hotkey::register(&app, state.inner().clone(), &new_settings.hotkey) {
-        log::warn!("Failed to re-register hotkey: {e}");
-    }
+    let hotkey_result = crate::hotkey::register(&app, state.inner().clone(), &new_settings.hotkey);
 
     let mut locked = state.lock().expect("state poisoned");
+    let hotkey_label = new_settings.hotkey.clone();
     locked.settings = new_settings;
-    // Reset engine so it re-initialises with the new model path on next dictation
     locked.engine = None;
-    log::info!("settings updated via IPC (and hotkey re-registered)");
-    Ok(())
+
+    match hotkey_result {
+        Ok(()) => {
+            locked.startup_warning = None;
+            log::info!("settings updated via IPC (and hotkey re-registered)");
+            Ok(())
+        }
+        Err(e) => {
+            let message = format!(
+                "Settings were saved, but the hotkey {hotkey_label} could not be registered. Choose a different shortcut. {e}"
+            );
+            locked.startup_warning = Some(message.clone());
+            Err(AppError::Internal(message))
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_startup_warning(state: State<'_, SharedState>) -> Option<String> {
+    state.lock().expect("state poisoned").startup_warning.clone()
+}
+
+/// Text the user can paste into a bug report. No transcripts, no API keys.
+#[tauri::command]
+pub fn diagnostics_report(state: State<'_, SharedState>) -> String {
+    let locked = state.lock().expect("state poisoned");
+    let cleanup = match &locked.settings.cleanup {
+        crate::settings::CleanupConfig::None => "off",
+        crate::settings::CleanupConfig::LocalOllama { .. } => "local Ollama",
+        crate::settings::CleanupConfig::RemoteOllama { .. } => "remote Ollama",
+        crate::settings::CleanupConfig::OpenAiCompat { .. } => "OpenAI-compatible",
+    };
+    let warning = locked.startup_warning.clone().unwrap_or_else(|| "none".into());
+    let status = format!("{:?}", locked.status);
+    drop(locked);
+
+    let crashes = get_logs()
+        .into_iter()
+        .map(|e| e.message)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let crashes = if crashes.is_empty() {
+        "(no crash log)".into()
+    } else {
+        crashes
+    };
+
+    format!(
+        "Utter {version}\nstatus: {status}\ncleanup: {cleanup}\nstartup warning: {warning}\n\ncrash log:\n{crashes}\n",
+        version = env!("CARGO_PKG_VERSION"),
+    )
 }
 
 #[tauri::command]

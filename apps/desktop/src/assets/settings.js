@@ -1220,6 +1220,32 @@ if (toggleSoundEl) {
   });
 }
 
+async function showStartupWarning() {
+  try {
+    const message = await invoke('get_startup_warning');
+    const banner = document.getElementById('startup-banner');
+    const text = document.getElementById('startup-banner-text');
+    if (message && banner && text) {
+      text.textContent = message;
+      banner.hidden = false;
+    }
+  } catch (e) {
+    console.warn('get_startup_warning failed:', e);
+  }
+}
+showStartupWarning();
+
+document.getElementById('btn-copy-diagnostics')?.addEventListener('click', async () => {
+  const status = document.getElementById('diagnostics-status');
+  try {
+    const report = await invoke('diagnostics_report');
+    await navigator.clipboard.writeText(report);
+    if (status) status.textContent = 'Diagnostics copied. It has no transcripts and no API keys.';
+  } catch (e) {
+    if (status) status.textContent = `Could not copy diagnostics: ${e?.message ?? e}`;
+  }
+});
+
 // Ensure onboarding modal is strictly hidden on launch so user enters the Studio Dashboard directly
 if (onboardingModal) {
   onboardingModal.hidden = true;

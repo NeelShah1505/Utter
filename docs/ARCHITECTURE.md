@@ -1,7 +1,8 @@
 # ARCHITECTURE — Technical Design
 
-> Authoritative technical spec. If code diverges, code is wrong (or this doc is — fix one).
-> Read alongside MEMORY.md which holds the invariant quick-reference.
+> Current as of 2026-10-29. The speech engine is Apple `SFSpeechRecognizer` on macOS Apple Silicon, forced on-device, English (US). Intel Mac and Windows are not built. `apple_silicon.rs` (Parakeet) and `whisper_cpp.rs` return `EngineUnavailable` and are not selected on macOS.
+>
+> If this file disagrees with `apps/desktop/src-tauri`, the code wins until this file is updated. See `docs/AUDIT/`.
 
 ---
 
@@ -128,13 +129,11 @@ pub trait AsrEngine: Send + Sync {
 }
 ```
 
-**Implementations:**
-- `AppleSiliconEngine` — wraps FluidAudio + Parakeet TDT CoreML model.
-- `WhisperCppEngine` — wraps whisper.cpp via FFI.
+**What actually runs:**
+- macOS, both architectures that compile the Swift helper: `MacOsSpeechEngine` in `engine/macos_speech.rs`, linked to `helpers/utter_transcribe.swift`. `requiresOnDeviceRecognition` is set. Locale is `en-US`.
+- Any other target: `WhisperCppEngine::init` returns `EngineUnavailable`. It does not panic. That target is not released.
 
-**Selection logic (compile-time):**
-- `#[cfg(target_os = "macos")]` + `#[cfg(target_arch = "aarch64")]` → `AppleSiliconEngine`
-- All others → `WhisperCppEngine`
+`AppleSiliconEngine` (Parakeet / FluidAudio) is a stub and is not the type selected on macOS.
 
 ---
 
@@ -157,19 +156,13 @@ All implementations speak the same `refine(raw) -> clean` contract. The shell do
 
 ## 6. Build Target Matrix
 
-| Target                    | OS        | Arch    | Engine           | Installer type | Filename (exact)              | Notes                          |
-|---------------------------|-----------|---------|------------------|----------------|-------------------------------|--------------------------------|
-| macOS Apple Silicon       | macOS 12+ | arm64   | FluidAudio+Para  | .dmg           | `app-macos-arm64.dmg`         | Primary Mac target             |
-| macOS Intel               | macOS 12+ | x86_64  | whisper.cpp      | .dmg           | `app-macos-x64.dmg`           |                                |
-| Windows x64               | Win 10+   | x86_64  | whisper.cpp      | .msi           | `app-windows-x64.msi`         | CUDA path if NVIDIA detected   |
-| Windows ARM64             | Win 11+   | aarch64 | whisper.cpp      | .msi           | `app-windows-arm64.msi`       | Experimental — labeled on site |
+| Target | OS | Arch | Engine | Installer | Shipped? |
+|--------|----|------|--------|-----------|----------|
+| macOS Apple Silicon | macOS 13+ | arm64 | Apple Speech, on device, en-US | `app-macos-arm64.dmg` | Yes. This is the only release asset. |
+| macOS Intel | — | x86_64 | Not built | — | No |
+| Windows | — | — | Not built | — | No |
 
-**These filenames are invariants.** They are referenced by:
-- The marketing site's download JS (must match byte-for-byte)
-- The GitHub Actions release workflow (must upload assets with these exact names)
-- The auto-update checker (future — will look up by these names)
-
-If a filename ever changes, all three must change in the same commit.
+`build.rs` can compile the Swift helper for `x86_64-apple-macos13.0` when `TARGET` says so. That build is not in CI and has not been linked.
 
 ---
 
@@ -179,27 +172,11 @@ If a filename ever changes, all three must change in the same commit.
 
 Triggers: push of tag `v*.*.*` on `main`.
 
-Jobs (matrix):
-- `build-macos-arm64` → produces `app-macos-arm64.dmg`
-- `build-macos-x64`   → produces `app-macos-x64.dmg`
-- `build-windows-x64` → produces `app-windows-x64.msi`
-- `build-windows-arm64` → produces `app-windows-arm64.msi`
+Jobs:
+- `build-macos-arm64` runs `cargo tauri build` and uploads `app-macos-arm64.dmg`.
+- `release` publishes that file and `app-macos-arm64.dmg.sha256`.
 
-Each job:
-1. Checkout
-2. Install Rust toolchain (`rustup toolchain install stable`)
-3. Install Tauri CLI (`cargo install tauri-cli` — pinned version)
-4. Build with `cargo tauri build --target <triple>`
-5. Rename artifact to the canonical filename
-6. Upload artifact
-
-Final job (`release`):
-1. Download all four artifacts
-2. Compute SHA-256 for each
-3. Create GitHub Release with tag, changelog, four assets, four `.sha256` sidecar files
-4. Mark as `latest`
-
-**This session:** Workflow YAML is syntactically valid and produces correctly-named artifacts, but the build steps are stubs (`echo "TODO: cargo tauri build"`). The artifact upload and release creation are functional so the site can fetch real (even if empty) asset URLs.
+`.github/workflows/ci.yml` runs the site tests on Ubuntu and `cargo test --bin utter` on macos-14. Intel and Windows jobs were removed because they uploaded placeholder files.
 
 ### 7.2 `deploy-site.yml`
 

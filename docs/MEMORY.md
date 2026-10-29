@@ -1,5 +1,17 @@
 # MEMORY — Hard Invariants & Anti-Hallucination Reference
 
+> **Read this banner first.** The sections below it were written when the repo was a Phase 0 scaffold. Where they disagree with this banner, this banner wins. Do not delete the old sections; they are the record of what was planned.
+
+## Current facts (2026-10-29)
+
+- Product: Utter. macOS Apple Silicon only. macOS 13+. Bundle id `com.utter.studio`. Keychain service `com.utter.app`. Do not merge those two strings.
+- Speech: Apple `SFSpeechRecognizer`, `requiresOnDeviceRecognition = true`, locale `en-US`. Parakeet and whisper.cpp are not implemented.
+- The only release file is `app-macos-arm64.dmg`. Do not upload Windows or Intel installers.
+- History is on by default, at `~/Library/Application Support/Utter/history.json`, mode 0600.
+- Live typing is off by default.
+- Not notarized. Ad-hoc signed. First launch needs right-click → Open.
+- Ledger: `docs/AUDIT/FINDINGS.md`.
+
 > **This file is the agent's long-term memory.**
 > **Read at the start of EVERY session, before doing anything else.**
 > **Update whenever a hard fact changes. Do not delete prior entries.**

@@ -1,5 +1,9 @@
 # TESTING — Test Plan & QA Checklist
 
+> The UA matrix below tests *detection*, not shipping. `detect.js` still names Windows and Intel files. `ui.js` does not offer those as downloads. The only installer CI builds is `app-macos-arm64.dmg`.
+>
+> Rust tests that exist: `cargo test --bin utter --manifest-path apps/desktop/src-tauri/Cargo.toml`. They cover edit plans, sanitizing, dictionary replacement, app classification, and cleanup URL policy. They do not speak into a microphone.
+
 > Living document. Update when test cases are added or budgets change.
 > All scores/results below must be re-verified per release.
 

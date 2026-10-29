@@ -30,7 +30,7 @@ Host: macOS 26.5.1 (25F80), arm64. rustc 1.88.0. Swift 6.1. Debug `cargo test`, 
 | Item | State |
 |------|--------|
 | Zero open S0 | No. F-014 (notarization) is open. F-002 is fixed in code and unverified on the wire. |
-| Every claim true | README and the homepage were rewritten. Older docs under `docs/` still describe FluidAudio and four platforms in places. |
+| Every claim true | README, homepage, and the current-fact banners in `docs/ARCHITECTURE.md`, `DESIGN.md`, `MEMORY.md`, `TESTING.md`, and `CONTEXT.md` match the code. Older phase tables remain as history under those banners. |
 | Nothing downloadable that cannot run | CI and the homepage agree. A tag has not been pushed, so GitHub Releases was not checked live. |
 | Panic hook, local only | `main.rs` writes `~/Library/Logs/Utter/crash.log`. No "copy diagnostics" button. |
 | Signed and notarized | No. |

@@ -109,6 +109,8 @@ fn main() {
             commands::list_models,
             commands::test_cleanup,
             commands::get_logs,
+            commands::get_startup_warning,
+            commands::diagnostics_report,
             commands::check_accessibility,
             commands::request_accessibility,
             commands::get_history,
@@ -134,8 +136,11 @@ fn main() {
             // Register the global hotkey
             let hotkey_str = shared_state.lock().expect("state poisoned").settings.hotkey.clone();
             if let Err(e) = hotkey::register(handle, shared_state.clone(), &hotkey_str) {
-                log::error!("hotkey registration failed: {e}");
-                // Not fatal — app still works, just no hotkey.
+                let message = format!(
+                    "The hotkey {hotkey_str} is not active. Another app may be using it. Change it in Settings. {e}"
+                );
+                log::error!("{message}");
+                shared_state.lock().expect("state poisoned").startup_warning = Some(message);
             }
 
             // Show and focus the studio dashboard on initial launch

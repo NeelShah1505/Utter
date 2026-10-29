@@ -51,7 +51,7 @@
           <span class="pulse-indicator"></span>
           <div class="sidebar-status-meta">
             <span class="meta-title">Engine Active</span>
-            <span class="meta-sub">100% Offline • Private</span>
+            <span class="meta-sub">On-device English · private</span>
           </div>
         </div>
       </div>
@@ -59,13 +59,19 @@
 
     <!-- === Main Content Views === -->
     <main class="app-main-content">
+      <div id="startup-banner" class="ai-notice-card" hidden style="margin: 16px 24px 0;">
+        <div class="ai-notice-content">
+          <h4>Hotkey is not active</h4>
+          <p id="startup-banner-text"></p>
+        </div>
+      </div>
       
       <!-- HOME DASHBOARD TAB -->
       <section id="view-home" class="view-panel active">
         <header class="view-header">
           <div class="hero-top-row">
             <div>
-              <h1 class="welcome-heading">Welcome back, NEEL</h1>
+              <h1 class="welcome-heading">Utter</h1>
               <p class="welcome-subheading">Your offline voice dictation engine is active. Hold or click your hotkey anywhere in macOS to speak.</p>
             </div>
             <div class="hero-engine-pill" id="hero-engine-pill">
@@ -612,6 +618,10 @@
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 Open in Finder
               </button>
+              <button type="button" id="btn-copy-diagnostics" class="btn-secondary btn-sm" style="display: flex; align-items: center; gap: 6px; margin-top: 8px;">
+                Copy diagnostics
+              </button>
+              <p id="diagnostics-status" class="save-status-msg"></p>
             </div>
           </div>
 

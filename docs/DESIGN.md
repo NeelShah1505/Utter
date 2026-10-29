@@ -28,19 +28,17 @@
 
 **Rationale:** Tauri gives us a single Rust codebase for the shell, native webviews (no Chromium bundle), and a path to ~10MB installers. The webview quirks are manageable because our UI is simple (transcript bubble + settings panel).
 
-### 2.2 ASR Engine: FluidAudio + Parakeet TDT v3 on Apple Silicon
+### 2.2 ASR engine that ships: Apple Speech, on device
 
-**Why FluidAudio:** Streaming-first ASR framework optimized for Apple's ANE (Apple Neural Engine). Real-time factor <0.3 on M1 — i.e., 1 second of audio transcribes in <0.3s. Critical for "type with your voice" feel.
+The 2024 plan was FluidAudio + Parakeet on Apple Silicon and whisper.cpp everywhere else. Those engines were not built. `apple_silicon.rs` and `whisper_cpp.rs` return an error and are not used on macOS.
 
-**Why Parakeet TDT v3:** Best WER (word error rate) per FLOP among open models in its size class as of project start. MIT/Apache license compatible with our MIT release. CoreML representation available, runs natively on ANE.
+macOS uses `SFSpeechRecognizer` through `helpers/utter_transcribe.swift`. Recognition must stay on device. If English (US) on-device speech is unavailable, dictation does not start. There is no network fallback.
 
-**Why not whisper.cpp on Apple Silicon:** Whisper is batch-oriented; streaming requires windowing hacks that hurt latency. Parakeet TDT is token-and-duration transducer, natively streaming. WER is competitive or better.
+Live typing of partials is off by default. The finished sentence is typed once. Newlines are not typed, because Return sends a chat message and submits a shell line.
 
-### 2.3 ASR Engine: whisper.cpp on Intel Mac + Windows
+### 2.3 Other platforms
 
-**Why whisper.cpp:** Best-maintained CPU STT in the open-source world. SIMD-optimized. CUDA path exists for NVIDIA GPUs on Windows. ARM64 builds work for Windows-on-ARM and Intel-Mac-era hardware.
-
-**Why not WhisperFork / faster-whisper / etc.:** whisper.cpp is the most portable; one codebase handles x64 macOS, x64 Windows, arm64 Windows. Faster-whisper requires Python runtime — we're not shipping a Python dependency.
+Not shipped. Do not describe Windows or Intel Mac builds as available.
 
 ### 2.4 Cleanup Layer: Pluggable, OFF by Default
 
