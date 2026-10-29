@@ -6,11 +6,17 @@ Host: macOS 26.5.1 (25F80), arm64. rustc 1.88.0. Swift 6.1. Debug `cargo test`, 
 
 ## Proven
 
-- `setRequiresOnDeviceRecognition:` and `supportsOnDeviceRecognition` are in the compiled Swift object `utter_transcribe.o` from the debug build of this session. `strings` on that object also shows `setAddsPunctuation:`.
-- `cargo test --bin utter` filter `logic::` and `cleanup::policy::`: 9 passed, 0 failed.
+- The project builds clean from this machine: `cargo build` on `apps/desktop/src-tauri` finished with **0 warnings**; the binary is `Mach-O 64-bit executable arm64`.
+- A full `cargo tauri build` (release) produced `Utter.app` and `Utter_0.1.0_aarch64.dmg` (4.8 MB, arm64). The release workflow renames that dmg to `app-macos-arm64.dmg` and publishes its `.sha256`, which is the exact filename the site links.
+- The release binary boots without panic: log shows `Utter v0.1.0 starting`, `hotkey: registered`, `setup complete`. RSS ~84 MB and CPU 0.3% just after boot.
+- With the app idle and running, `lsof -nP -i -p <pid>` shows **no open network sockets**. This is telemetry-at-rest evidence only; it is not a dictation-time packet capture.
+- `setRequiresOnDeviceRecognition:` and `supportsOnDeviceRecognition` are in the compiled Swift object `utter_transcribe.o`. `strings` on that object also shows `setAddsPunctuation:`.
+- Lint gate is clean: `cargo clippy --all-targets -- -D warnings` and `cargo fmt --check` both pass (after F-026 fixes).
+- `cargo audit` reports **0 vulnerabilities** (after F-028); 13 remaining items are allowed unmaintained/unsound warnings in Tauri's Linux-only transitive deps.
+- `cargo test --bin utter`: 9 passed, 0 failed.
 - `node --test` on the site suites: 29 passed, 0 failed.
 - The test binary linked, which means `IsSecureEventInputEnabled` in Carbon resolved. It was not called against a password field.
-- CI no longer has jobs that write the string `placeholder - not a real installer` into a `.dmg` or `.msi`.
+- CI no longer has jobs that write the string `placeholder - not a real installer` into a `.dmg` or `.msi`, and now runs fmt, clippy, tests, and audit.
 
 ## Not proven
 
