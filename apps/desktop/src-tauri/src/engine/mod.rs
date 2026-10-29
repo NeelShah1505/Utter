@@ -48,7 +48,7 @@ impl From<EngineError> for AppError {
         match e {
             EngineError::ModelLoad(m)     => AppError::ModelLoad(m),
             EngineError::ModelNotFound(m) => AppError::ModelNotFound(m),
-            EngineError::NotImplemented(m)=> AppError::Internal(format!("not implemented: {m}")),
+            EngineError::NotImplemented(m)=> AppError::EngineUnavailable(m),
             other                         => AppError::Internal(other.to_string()),
         }
     }

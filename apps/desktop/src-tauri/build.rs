@@ -7,10 +7,17 @@ fn main() {
 
         let out_dir = env::var("OUT_DIR").unwrap();
         
+        let target = env::var("TARGET").unwrap_or_default();
+        let swift_target = if target.starts_with("x86_64") {
+            "x86_64-apple-macos13.0"
+        } else {
+            "arm64-apple-macos13.0"
+        };
+
         let status = Command::new("swiftc")
             .args(&[
                 "-c", "-O",
-                "-target", "arm64-apple-macos13.0",
+                "-target", swift_target,
                 "helpers/utter_transcribe.swift",
                 "-o", &format!("{}/utter_transcribe.o", out_dir)
             ])

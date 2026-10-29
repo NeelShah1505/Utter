@@ -23,7 +23,9 @@ mod error;
 mod history;
 mod hotkey;
 mod insert;
+mod logic;
 mod mic;
+mod persist;
 mod settings;
 mod state;
 
@@ -35,7 +37,36 @@ extern "C" {
     fn activate_app_to_front();
 }
 
+fn crash_log_path() -> Option<std::path::PathBuf> {
+    let base = if cfg!(target_os = "macos") {
+        dirs::home_dir().map(|h| h.join("Library/Logs/Utter"))
+    } else {
+        dirs::config_dir().map(|d| d.join("Utter").join("logs"))
+    }?;
+    std::fs::create_dir_all(&base).ok()?;
+    Some(base.join("crash.log"))
+}
+
+fn install_panic_hook() {
+    let path = crash_log_path();
+    std::panic::set_hook(Box::new(move |info| {
+        let msg = format!("{info}\n");
+        eprintln!("Utter crashed. A local note was saved. Nothing was sent over the network.\n{msg}");
+        if let Some(path) = &path {
+            let _ = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, "----\n{msg}")
+                });
+        }
+    }));
+}
+
 fn main() {
+    install_panic_hook();
     // Initialise env_logger.
     // In release builds, default to 'info'. In debug builds, default to 'debug'.
     #[cfg(debug_assertions)]
@@ -55,9 +86,6 @@ fn main() {
     tauri::Builder::default()
         // --- Plugins ---
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             log::info!("Another instance attempted to launch. Focusing settings window...");
             if let Some(window) = app.get_webview_window("settings") {

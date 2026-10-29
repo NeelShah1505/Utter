@@ -30,8 +30,13 @@ class StreamingRecognizer {
         
         let locale = Locale(identifier: "en-US")
         self.recognizer = SFSpeechRecognizer(locale: locale)
-        guard self.recognizer?.isAvailable == true else {
-            fputs("error: Speech Recognizer not available\n", stderr)
+        guard let recognizer = self.recognizer, recognizer.isAvailable else {
+            fputs("error: Speech Recognizer not available for en-US\n", stderr)
+            return nil
+        }
+        // Offline claim: never fall back to Apple's servers.
+        guard recognizer.supportsOnDeviceRecognition else {
+            fputs("error: on-device speech recognition is unavailable for en-US. Download Dictation language data in System Settings.\n", stderr)
             return nil
         }
     }
@@ -59,10 +64,8 @@ class StreamingRecognizer {
         syncQueue.sync {
             if isManuallyEnded { return false }
             
-            request = SFSpeechAudioBufferRecognitionRequest()
+            request = Self.makeRequest()
             guard let request = request else { return false }
-            
-            request.shouldReportPartialResults = true
             
             let ctx = self.contextPtr
             let cb = self.callback
@@ -111,10 +114,8 @@ class StreamingRecognizer {
     private func startTaskWithoutSync() -> Bool {
         if isManuallyEnded { return false }
         
-        request = SFSpeechAudioBufferRecognitionRequest()
+        request = Self.makeRequest()
         guard let request = request else { return false }
-        
-        request.shouldReportPartialResults = true
         
         let ctx = self.contextPtr
         let cb = self.callback
@@ -153,6 +154,16 @@ class StreamingRecognizer {
         return true
     }
     
+    private static func makeRequest() -> SFSpeechAudioBufferRecognitionRequest? {
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = true
+        if #available(macOS 13.0, *) {
+            request.addsPunctuation = true
+        }
+        return request
+    }
+
     func appendAudio(samples: UnsafePointer<Float>, count: Int) {
         guard count > 0 else { return }
         

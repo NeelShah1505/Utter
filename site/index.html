@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Title and meta -->
-  <title>Utter — Type with your voice. Offline.</title>
-  <meta name="description" content="Open-source voice dictation for macOS and Windows. Works completely offline — no account, no API key, no telemetry. Press a hotkey and speak.">
+  <title>Utter — Type with your voice. On your Mac.</title>
+  <meta name="description" content="Open-source voice dictation for macOS Apple Silicon. On-device English speech, no account, no telemetry. Press a hotkey and speak.">
 
   <!-- Open Graph -->
   <meta property="og:title"       content="Utter — Type with your voice. Offline.">
-  <meta property="og:description" content="Open-source voice dictation for macOS and Windows. Works completely offline — no account, no API key, no telemetry.">
+  <meta property="og:description" content="Open-source voice dictation for macOS Apple Silicon. On-device English speech, no account, no telemetry.">
   <meta property="og:type"        content="website">
   <!-- TODO: Update og:url and og:image once Q-001 is resolved and the site is deployed -->
 
@@ -74,12 +74,13 @@
         <p class="hero__eyebrow">Open source · MIT License</p>
 
         <h1 class="hero__heading" id="hero-heading">
-          Type with your voice.<br>Everywhere. Offline.
+          Type with your voice.<br>On your Mac. On device.
         </h1>
 
         <p class="hero__subhead">
-          Voice dictation for macOS and Windows. Press a hotkey, speak, and your
-          words appear in any app — with no account, no network, and no telemetry.
+          Voice dictation for macOS Apple Silicon, English (US). Press a hotkey and speak.
+          Speech runs on device. Optional AI cleanup is off until you turn it on.
+          No account. No telemetry.
         </p>
 
         <!--
@@ -122,28 +123,15 @@
             #download-meta { display: none !important; }
           </style>
           <div class="noscript-downloads">
-            <p>JavaScript is disabled. Choose your download:</p>
+            <p>JavaScript is disabled. The only build that runs today:</p>
             <ul>
               <li>
                 <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-macos-arm64.dmg">
                   app-macos-arm64.dmg — macOS Apple Silicon
                 </a>
               </li>
-              <li>
-                <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-macos-x64.dmg">
-                  app-macos-x64.dmg — macOS Intel
-                </a>
-              </li>
-              <li>
-                <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-windows-x64.msi">
-                  app-windows-x64.msi — Windows x64
-                </a>
-              </li>
-              <li>
-                <a href="https://github.com/NeelShah1505/Utter/releases/latest/download/app-windows-arm64.msi">
-                  app-windows-arm64.msi — Windows ARM64
-                </a>
-              </li>
+              <li>macOS Intel — not shipped</li>
+              <li>Windows — not shipped</li>
             </ul>
           </div>
           <!-- TODO: Replace NeelShah1505/Utter in all four links above once Q-001 resolved -->
@@ -177,8 +165,8 @@
             </div>
             <h3 class="feature-card__title">Streaming transcription</h3>
             <p class="feature-card__desc">
-              Text appears as you speak — under 300ms latency on a mid-range laptop.
-              Powered by Apple ANE on Apple Silicon, whisper.cpp on Intel and Windows.
+              Press the hotkey, speak, press it again. The finished sentence is typed
+              where your cursor is. Live typing while you speak is off unless you enable it.
             </p>
           </article>
 
@@ -191,10 +179,11 @@
                 <path d="M10.4 17.8a5 5 0 0 0 5.5-1.2"/>
               </svg>
             </div>
-            <h3 class="feature-card__title">Works completely offline</h3>
+            <h3 class="feature-card__title">On-device speech</h3>
             <p class="feature-card__desc">
-              No network connection required. Core dictation runs on-device — audio
-              never leaves your machine. Works on a plane, in a basement, anywhere.
+              Dictation asks Apple's speech recognizer to stay on device. If that
+              language data is not downloaded, dictation refuses instead of sending
+              audio to Apple. Optional cleanup is a separate network call you turn on.
             </p>
           </article>
 
@@ -265,8 +254,8 @@
             <p class="step__number">01</p>
             <h3 class="step__title">Install</h3>
             <p class="step__desc">
-              Download the installer for your platform. Run it. The app is roughly
-              10 MB and installs like any other desktop application.
+              Download the Apple Silicon disk image. Open it and drag Utter to Applications.
+              The build is ad-hoc signed: the first launch needs a right-click → Open.
             </p>
           </div>
 
@@ -274,9 +263,9 @@
             <p class="step__number">02</p>
             <h3 class="step__title">Grant permissions</h3>
             <p class="step__desc">
-              The first time you dictate, your OS will ask for microphone access.
-              On macOS, Accessibility access is also needed to insert text. You
-              grant both once, in system settings.
+              Grant Microphone, Speech Recognition, and Accessibility. Utter links
+              you to the Accessibility pane. Without Accessibility, the text stays
+              in History and is not typed into the other app.
             </p>
           </div>
 
@@ -284,9 +273,8 @@
             <p class="step__number">03</p>
             <h3 class="step__title">Press the hotkey and speak</h3>
             <p class="step__desc">
-              Press <kbd>Cmd+Shift+D</kbd> (macOS) or <kbd>Ctrl+Shift+D</kbd>
-              (Windows) from any application. Speak. Your words appear where your
-              cursor is. Press again to stop.
+              Press <kbd>Cmd+Shift+D</kbd>. Speak. Press it again. The text is typed
+              into the focused app. English (United States) only in this version.
             </p>
           </div>
         </div>
@@ -316,31 +304,18 @@
             <tbody>
               <tr>
                 <td>macOS (Apple Silicon)</td>
-                <td>macOS 12 Monterey or later</td>
-                <td>arm64 (M1, M2, M3, M4)</td>
-                <td>FluidAudio + Parakeet TDT v3 (ANE)</td>
+                <td>macOS 13 or later</td>
+                <td>arm64 (M1 or later)</td>
+                <td>Apple Speech, on device, English (US)</td>
                 <td><code>app-macos-arm64.dmg</code></td>
               </tr>
               <tr>
                 <td>macOS (Intel)</td>
-                <td>macOS 12 Monterey or later</td>
-                <td>x86_64</td>
-                <td>whisper.cpp (CPU)</td>
-                <td><code>app-macos-x64.dmg</code></td>
+                <td colspan="4">Not shipped. The speech helper is not built for Intel in this version.</td>
               </tr>
               <tr>
                 <td>Windows</td>
-                <td>Windows 10 or later</td>
-                <td>x64</td>
-                <td>whisper.cpp (CPU; CUDA if NVIDIA GPU detected)</td>
-                <td><code>app-windows-x64.msi</code></td>
-              </tr>
-              <tr>
-                <td>Windows on ARM <span class="badge-experimental">Experimental</span></td>
-                <td>Windows 11 or later</td>
-                <td>ARM64</td>
-                <td>whisper.cpp (CPU)</td>
-                <td><code>app-windows-arm64.msi</code></td>
+                <td colspan="4">Not shipped. There is no working speech engine on Windows yet.</td>
               </tr>
             </tbody>
           </table>

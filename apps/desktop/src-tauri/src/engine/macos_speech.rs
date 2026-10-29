@@ -117,7 +117,9 @@ impl AsrEngine for MacOsSpeechEngine {
         
         if swift_ptr.is_null() {
             unsafe { let _ = Box::from_raw(state_ptr); } // free it
-            return Err(EngineError::Session("Failed to init Swift StreamingRecognizer (check permissions)".to_string()));
+            return Err(EngineError::Session(
+                "On-device speech recognition did not start. Grant Microphone and Speech Recognition to Utter, and download English (United States) dictation in System Settings. Utter will not send audio to Apple.".into(),
+            ));
         }
 
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);

@@ -65,8 +65,8 @@ pub fn toggle_dictation(app: AppHandle, state: SharedState) {
     };
 
     match current_status {
-        // ── Idle → start recording ───────────────────────────────────────
-        Status::Idle => {
+        // Error is recoverable: the next press starts a new dictation.
+        Status::Idle | Status::Error(_) => {
             log::info!("hotkey: starting dictation");
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = commands::start_dictation_impl(&app, &state).await {
@@ -102,12 +102,5 @@ pub fn toggle_dictation(app: AppHandle, state: SharedState) {
             log::debug!("hotkey: ignoring — transcription already in-flight");
         }
 
-        // ── Error → clear and return to Idle ─────────────────────────────
-        Status::Error(_) => {
-            log::info!("hotkey: clearing error, returning to Idle");
-            let _ = app.emit("state_change", serde_json::json!({ "status": "Idle" }));
-            let mut locked = state.lock().expect("state poisoned");
-            locked.status = Status::Idle;
-        }
     }
 }

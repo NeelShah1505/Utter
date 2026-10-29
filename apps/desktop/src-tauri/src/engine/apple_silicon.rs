@@ -29,16 +29,11 @@ impl AsrEngine for AppleSiliconEngine {
         // Example pseudo-code:
         //   let session = FluidAudio::load_model(&config.model_path)?;
         //   Ok(Self { session })
-        log::error!(
-            "AppleSiliconEngine::init called but FluidAudio + Parakeet TDT \
-             CoreML binding is not yet implemented. Phase 2 required."
-        );
-        panic!(
-            "not implemented: FluidAudio + Parakeet TDT CoreML binding \
-             (Phase 2). See ARCHITECTURE.md §4 and CONTEXT.md."
-        );
-        #[allow(unreachable_code)]
-        Ok(Self { _model_path: _config.model_path.clone() })
+        let _ = _config;
+        Err(EngineError::NotImplemented(
+            "The Parakeet engine is not built. macOS uses Apple's on-device speech recognizer."
+                .into(),
+        ))
     }
 
     fn start_session(

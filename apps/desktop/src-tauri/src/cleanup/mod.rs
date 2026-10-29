@@ -16,6 +16,7 @@
 pub mod noop;
 pub mod ollama;
 pub mod openai_compat;
+pub mod policy;
 
 use crate::error::AppError;
 use crate::settings::CleanupConfig;

@@ -4,19 +4,12 @@
 #
 # Jobs:
 #   build-macos-arm64    → app-macos-arm64.dmg
-#   build-macos-x64      → app-macos-x64.dmg
-#   build-windows-x64    → app-windows-x64.msi
-#   build-windows-arm64  → app-windows-arm64.msi
-#   release              → creates GitHub Release, uploads all four assets + SHA-256 sidecars
+#   release              → GitHub Release with that dmg and its .sha256
 #
-# PHASE 0 STATUS:
-#   Build steps for the Tauri app are stubs (echo "TODO"). The workflow is
-#   syntactically valid and produces correctly-named artifacts so the marketing
-#   site's GitHub Releases API fetch can find them. Replace stubs in Phase 1.
+# Intel Mac and Windows are not built. Do not upload placeholder files
+# under installer names.
 #
-# INVARIANT: Artifact names MUST match MEMORY.md §2.1 exactly.
-#   app-macos-arm64.dmg / app-macos-x64.dmg / app-windows-x64.msi / app-windows-arm64.msi
-#   Any deviation causes 404s on the download page.
+# Shipped artifact: app-macos-arm64.dmg only.
 
 name: Build & Release
 
@@ -81,125 +74,17 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # ---------------------------------------------------------------------------
-  # macOS Intel build
-  # ---------------------------------------------------------------------------
-  build-macos-x64:
-    name: Build macOS (Intel)
-    runs-on: macos-13  # Intel runner
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
-
-      # TODO (Phase 1): Replace stub with:
-      #   cargo install tauri-cli --version "^2"
-      #   cargo tauri build --target x86_64-apple-darwin
-      - name: Build (stub — Phase 0)
-        run: |
-          echo "TODO: cargo tauri build --target x86_64-apple-darwin"
-          mkdir -p dist
-          echo "placeholder - not a real installer" > dist/app-macos-x64.dmg
-
-      - name: Stage artifact
-        run: mv dist/app-macos-x64.dmg app-macos-x64.dmg
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-macos-x64.dmg
-          path: app-macos-x64.dmg
-          if-no-files-found: error
-          retention-days: 1
+  # Intel Mac and Windows jobs were removed on purpose.
+  # Those jobs uploaded text files named like installers. Do not add them back
+  # until the speech engine runs on that platform and a clean machine can dictate.
 
   # ---------------------------------------------------------------------------
-  # Windows x64 build
-  # ---------------------------------------------------------------------------
-  build-windows-x64:
-    name: Build Windows (x64)
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      # TODO (Phase 1): Replace stub with:
-      #   cargo install tauri-cli --version "^2"
-      #   cargo tauri build --target x86_64-pc-windows-msvc
-      - name: Build (stub — Phase 0)
-        shell: bash
-        run: |
-          echo "TODO: cargo tauri build --target x86_64-pc-windows-msvc"
-          mkdir -p dist
-          echo "placeholder - not a real installer" > dist/app-windows-x64.msi
-
-      - name: Stage artifact
-        shell: bash
-        run: mv dist/app-windows-x64.msi app-windows-x64.msi
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-windows-x64.msi
-          path: app-windows-x64.msi
-          if-no-files-found: error
-          retention-days: 1
-
-  # ---------------------------------------------------------------------------
-  # Windows ARM64 build
-  # ---------------------------------------------------------------------------
-  build-windows-arm64:
-    name: Build Windows (ARM64 — experimental)
-    runs-on: windows-latest  # Cross-compile from x64; native ARM runner if available later
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-pc-windows-msvc
-
-      # TODO (Phase 1): Replace stub with:
-      #   cargo install tauri-cli --version "^2"
-      #   cargo tauri build --target aarch64-pc-windows-msvc
-      - name: Build (stub — Phase 0)
-        shell: bash
-        run: |
-          echo "TODO: cargo tauri build --target aarch64-pc-windows-msvc"
-          mkdir -p dist
-          echo "placeholder - not a real installer" > dist/app-windows-arm64.msi
-
-      - name: Stage artifact
-        shell: bash
-        run: mv dist/app-windows-arm64.msi app-windows-arm64.msi
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-windows-arm64.msi
-          path: app-windows-arm64.msi
-          if-no-files-found: error
-          retention-days: 1
-
-  # ---------------------------------------------------------------------------
-  # Release job — runs after all four builds succeed
+  # Release job
   # ---------------------------------------------------------------------------
   release:
     name: Create GitHub Release
     needs:
       - build-macos-arm64
-      - build-macos-x64
-      - build-windows-x64
-      - build-windows-arm64
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -214,10 +99,7 @@ jobs:
       # Compute SHA-256 for each asset (published alongside release for verification)
       - name: Compute SHA-256 checksums
         run: |
-          sha256sum app-macos-arm64.dmg    > app-macos-arm64.dmg.sha256
-          sha256sum app-macos-x64.dmg      > app-macos-x64.dmg.sha256
-          sha256sum app-windows-x64.msi    > app-windows-x64.msi.sha256
-          sha256sum app-windows-arm64.msi  > app-windows-arm64.msi.sha256
+          sha256sum app-macos-arm64.dmg > app-macos-arm64.dmg.sha256
           echo "--- SHA-256 checksums ---"
           cat *.sha256
 
@@ -233,11 +115,5 @@ jobs:
           files: |
             app-macos-arm64.dmg
             app-macos-arm64.dmg.sha256
-            app-macos-x64.dmg
-            app-macos-x64.dmg.sha256
-            app-windows-x64.msi
-            app-windows-x64.msi.sha256
-            app-windows-arm64.msi
-            app-windows-arm64.msi.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

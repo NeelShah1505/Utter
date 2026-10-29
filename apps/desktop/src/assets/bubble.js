@@ -142,8 +142,11 @@ async function init() {
 
   // transcript_final — final result after processing
   await listen('transcript_final', ({ payload }) => {
-    transcriptEl.textContent = payload.text;
-    // Brief flash of the final text before clearing
+    transcriptEl.textContent = payload.text || '';
+    if (payload.insert_error) {
+      applyState('Error', payload.insert_error);
+      return;
+    }
     setTimeout(() => applyState('Idle'), 1400);
   });
 

@@ -24,6 +24,9 @@ const ALL_ASSETS = [
   ASSETS.WINDOWS_ARM64,
 ];
 
+/** Installers that exist and run. The others are not built. */
+const SHIPPED = new Set([ASSETS.MACOS_ARM64]);
+
 /** Format bytes as human-readable string. Returns null if unknown. */
 function formatSize(bytes) {
   if (!bytes || bytes <= 0) return null;
@@ -55,14 +58,14 @@ function setPrimaryButton(btn, filename, url, size, version) {
 /** Set primary button to fallback state — points to GitHub releases page. */
 function setPrimaryButtonFallback(btn) {
   btn.href = RELEASES_PAGE_URL;
-  btn.textContent = 'Download from GitHub';
+  btn.textContent = 'macOS Apple Silicon only';
   btn.removeAttribute('download');
   btn.removeAttribute('aria-disabled');
   btn.classList.add('is-ready');
 
   const meta = document.getElementById('download-meta');
   if (meta) {
-    meta.textContent = 'Choose your platform on GitHub';
+    meta.textContent = 'Windows and Intel Mac builds are not shipped. They cannot dictate yet.';
     meta.hidden = false;
   }
 }
@@ -75,13 +78,20 @@ function populateOtherPlatformsList(list, release, primaryAsset) {
     const li = document.createElement('li');
     const a  = document.createElement('a');
 
+    const label = ASSET_LABELS[filename] || filename;
+    if (!SHIPPED.has(filename)) {
+      a.removeAttribute('href');
+      a.textContent = `${label} — not available`;
+      li.appendChild(a);
+      list.appendChild(li);
+      continue;
+    }
+
     const url  = (release ? getAssetUrl(release, filename) : null) || getDirectDownloadUrl(filename);
     const size = release ? formatSize((release.assets.find(a => a.name === filename) || {}).size) : null;
 
     a.href = url;
     a.setAttribute('download', filename);
-
-    const label = ASSET_LABELS[filename] || filename;
     a.textContent = label;
 
     if (size) {
@@ -129,7 +139,7 @@ async function init() {
   const release = releaseResult.ok ? releaseResult.data : null;
 
   // Determine download URL for the primary button
-  if (detectedAsset) {
+  if (detectedAsset && SHIPPED.has(detectedAsset)) {
     const url = (release ? getAssetUrl(release, detectedAsset) : null) || getDirectDownloadUrl(detectedAsset);
     const size    = release ? formatSize((release.assets.find(a => a.name === detectedAsset) || {}).size) : null;
     const version = release ? release.version : '';

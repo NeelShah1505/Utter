@@ -157,7 +157,7 @@
         cleanup: { type: "None" },
         dictionary: []
       };
-      var dictHistory = JSON.parse(localStorage.getItem("utter_history") || "[]");
+      var dictHistory = [];
       var navItems = document.querySelectorAll(".nav-item[data-tab]");
       var viewPanels = document.querySelectorAll(".view-panel");
       var hotkeyInput = document.getElementById("hotkey-input");
@@ -545,6 +545,10 @@
         }
         highlightActiveStyle(cleanup.prompt);
         updateAiEngineVisibility(engineType);
+        const liveEl = document.getElementById("toggle-live-typing");
+        if (liveEl) liveEl.checked = currentSettings.live_typing === true;
+        const routeEl = document.getElementById("toggle-smart-routing");
+        if (routeEl) routeEl.checked = currentSettings.smart_routing !== false;
         renderDictionary();
         updateHistoryUI();
       }
@@ -569,12 +573,16 @@
             prompt: aiCustomPrompt.value.trim() || null
           };
         }
+        const liveEl = document.getElementById("toggle-live-typing");
+        const routeEl = document.getElementById("toggle-smart-routing");
         return {
           hotkey: hotkeyInput.value.trim() || "CmdOrCtrl+Shift+D",
           model_path: modelSelect.value || "",
           audio_device: audioSelect.value === "System Default Microphone" ? "" : audioSelect.value,
           cleanup,
-          dictionary: currentSettings.dictionary || []
+          dictionary: currentSettings.dictionary || [],
+          live_typing: liveEl ? liveEl.checked : false,
+          smart_routing: routeEl ? routeEl.checked : true
         };
       }
       async function saveSettingsSilently() {

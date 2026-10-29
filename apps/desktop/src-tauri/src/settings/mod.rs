@@ -40,6 +40,20 @@ pub struct Settings {
     /// Custom dictionary replacements and recognized phrases
     #[serde(default)]
     pub dictionary: Vec<DictionaryItem>,
+
+    /// Type each speech revision into the focused app while you are still talking.
+    /// Off by default: partials get rewritten, and rewriting means synthetic backspaces.
+    #[serde(default)]
+    pub live_typing: bool,
+
+    /// When cleanup is on, bias the prompt from the frontmost app.
+    /// Does nothing while cleanup is off.
+    #[serde(default = "default_true")]
+    pub smart_routing: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -49,11 +63,9 @@ impl Default for Settings {
             model_path:   String::new(),
             audio_device: String::new(),
             cleanup:      CleanupConfig::None,
-            dictionary:   vec![
-                DictionaryItem { word: "neel".into(), replacement: Some("NEEL".into()) },
-                DictionaryItem { word: "utter".into(), replacement: Some("Utter Flow".into()) },
-                DictionaryItem { word: "btw".into(), replacement: Some("by the way".into()) },
-            ],
+            dictionary:   Vec::new(),
+            live_typing:  false,
+            smart_routing: true,
         }
     }
 }
@@ -154,7 +166,7 @@ pub fn save(settings: &Settings) -> Result<()> {
     let raw = toml::to_string_pretty(settings)
         .map_err(|e| AppError::Internal(format!("settings serialise: {e}")))?;
 
-    std::fs::write(&path, raw)
+    crate::persist::atomic_write(&path, &raw)
         .map_err(|e| AppError::Internal(format!("settings write {}: {e}", path.display())))?;
 
     log::info!("settings: saved to {}", path.display());

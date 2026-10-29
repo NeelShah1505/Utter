@@ -58,6 +58,14 @@
 
 ## Session Log
 
+### Session — 2026-10-29 — market-readiness audit
+
+The Phase 0 "do not write the desktop app" rule in this file is obsolete. The app exists. This session compared the README with the code, then changed the product to match what actually runs.
+
+Decisions are in `docs/AUDIT/02-decisions.md`. The ledger is `docs/AUDIT/FINDINGS.md`. Release is a no-go until notarization and a real dictation run: `docs/AUDIT/03-release-readiness.md`.
+
+Shipped scope is macOS Apple Silicon, English (US), Apple on-device speech. Windows and Intel installers are not built.
+
 ### Session 1 — 2024-07-23
 **Done:**
 - Created repo scaffold per `ARCHITECTURE.md` directory layout

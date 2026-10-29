@@ -29,16 +29,11 @@ impl AsrEngine for WhisperCppEngine {
         //       WhisperContextParameters::default(),
         //   ).map_err(|e| EngineError::ModelLoad(e.to_string()))?;
         //   Ok(Self { ctx })
-        log::error!(
-            "WhisperCppEngine::init called but whisper.cpp FFI binding \
-             is not yet implemented. Phase 3 required."
-        );
-        panic!(
-            "not implemented: whisper.cpp FFI binding (Phase 3). \
-             See ARCHITECTURE.md §4 and CONTEXT.md."
-        );
-        #[allow(unreachable_code)]
-        Ok(Self { _model_path: _config.model_path.clone() })
+        Err(EngineError::NotImplemented(
+            "This build only dictates on macOS, using Apple's on-device speech recognizer. \
+             Windows and Intel Mac installers are not shipped."
+                .into(),
+        ))
     }
 
     fn start_session(

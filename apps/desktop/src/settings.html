@@ -348,12 +348,8 @@
           <div class="section-top-bar" style="margin-top: 36px; margin-bottom: 14px;">
             <div>
               <h3 style="font-size: 1.15rem; font-weight: 600; color: var(--text);">Voice Snippets &amp; Quick Expansions</h3>
-              <p style="font-size: 0.85rem; color: var(--muted); margin-top: 2px;">Speak short trigger phrases to auto-insert frequent text templates, links, or phrases.</p>
+              <p style="font-size: 0.85rem; color: var(--muted); margin-top: 2px;">Not in this version. Use Dictionary for word replacements. The cards below are examples of a later feature, and they do nothing.</p>
             </div>
-            <button type="button" class="btn-secondary btn-sm" id="btn-quick-add-snippet" style="display: flex; align-items: center; gap: 6px;">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Add Snippet Rule
-            </button>
           </div>
           <div class="snippet-presets-grid">
             <div class="snippet-preset-card">
@@ -557,8 +553,8 @@
 
           <div class="setting-item-card">
             <div class="setting-desc">
-              <h4>Acoustic ASR Model File</h4>
-              <p>Select customized local offline whisper models located in your App Support folder.</p>
+              <h4>Model file</h4>
+              <p>macOS uses Apple on-device speech. Files in this folder are listed for a future engine and are not used today.</p>
             </div>
             <div class="setting-control">
               <select id="model-select" class="select-control">
@@ -582,8 +578,21 @@
 
           <div class="setting-item-card">
             <div class="setting-desc">
+              <h4>Live typing while you speak</h4>
+              <p>Off by default. When on, each revision is typed with backspaces. That can fight you if you type at the same time, and it can wreck undo. Leave this off unless you want the experimental behavior.</p>
+            </div>
+            <div class="setting-control">
+              <label class="switch-toggle" title="Type partial transcripts while listening">
+                <input type="checkbox" id="toggle-live-typing">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item-card">
+            <div class="setting-desc">
               <h4>Smart Context Auto-Routing</h4>
-              <p>Automatically adapt voice formatting style based on active macOS application (Cursor, Slack, Mail).</p>
+              <p>Only applies when AI cleanup is on. Biases the cleanup prompt from the front app (code, chat, or email). It does not change Apple speech recognition.</p>
             </div>
             <div class="setting-control">
               <label class="switch-toggle" title="Toggle context auto-routing">
@@ -596,7 +605,7 @@
           <div class="setting-item-card">
             <div class="setting-desc">
               <h4>Local Data Storage & Privacy</h4>
-              <p>Config: <code>~/Library/Application Support/Utter/config.toml</code><br/>History: <code>~/Library/Application Support/Utter/history.json</code><br/>API Keys: macOS Keychain (Hardware Encrypted)</p>
+              <p>Config: <code>~/Library/Application Support/Utter/config.toml</code><br/>History is saved locally in <code>history.json</code> until you clear it.<br/>API keys: macOS Keychain, service <code>com.utter.app</code></p>
             </div>
             <div class="setting-control">
               <button type="button" id="btn-open-config-dir" class="btn-secondary btn-sm" style="display: flex; align-items: center; gap: 6px;">
@@ -610,7 +619,7 @@
 
         <!-- About & Footer info -->
         <footer class="about-section">
-          <p>Utter v1.0 • Open Source Voice Assistant • Fully Offline by Default • No Telemetry</p>
+          <p>Utter 0.1.0 · macOS Apple Silicon · on-device English (US) speech · no telemetry</p>
         </footer>
       </section>
 

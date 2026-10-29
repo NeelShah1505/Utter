@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Utter windows. No shell, no dialog, no remote fetch from the webview.",
+  "windows": ["main", "settings"],
+  "permissions": [
+    "core:default",
+    "global-shortcut:default"
+  ]
+}

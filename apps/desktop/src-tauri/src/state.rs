@@ -44,8 +44,16 @@ pub struct AppState {
     /// Initialised lazily on first dictation.
     pub engine: Option<Arc<PlatformEngine>>,
 
+    /// Thread that forwards mic chunks to the speech engine.
+    /// Joined on stop, after the capture handle (and its channel sender) is dropped.
+    pub audio_feeder: Option<std::thread::JoinHandle<()>>,
+
     /// Current user settings (loaded from disk at startup, updated by set_settings).
     pub settings: Settings,
+}
+
+pub fn unpoison<T>(result: std::sync::LockResult<T>) -> T {
+    result.unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 impl AppState {
@@ -57,6 +65,7 @@ impl AppState {
             last_streamed:  Arc::new(Mutex::new(String::new())),
             capture_handle: None,
             engine:         None,
+            audio_feeder:   None,
             settings:       settings::load(),
         }
     }

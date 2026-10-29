@@ -1,29 +1,15 @@
 // cleanup/openai_compat.rs — OpenAI-compatible cleanup backend.
 //
-// Works with any endpoint that speaks the OpenAI /v1/chat/completions API:
-//   - OpenAI (api.openai.com)
-//   - LM Studio (localhost:1234)
-//   - vLLM (any host)
-//   - Ollama with OpenAI compat shim
-//
-// Security:
-//   - The API key is loaded from the OS keychain by cleanup/mod.rs.
-//     It is passed in as a String and held in memory only for the duration
-//     of the request. It is NEVER logged.
-//   - The raw transcript is sent ONLY to the configured endpoint over HTTPS.
+// The API key stays in memory for the request. It is not logged.
+// Redirects are refused. The transcript is delimited and the reply is vetted.
 
+use super::policy;
 use super::{CleanupBackend, CleanupError};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::Duration;
 
-const SYSTEM_PROMPT: &str =
-    "You are a transcript editor. Fix grammar, remove filler words (um, uh, like, you know), \
-     and correct obvious transcription errors. Return ONLY the corrected transcript — no \
-     explanations, no comments, no surrounding quotes. Preserve meaning exactly.";
-
 pub struct OpenAiCompatBackend {
-    client:  Client,
     url:     String,
     model:   String,
     api_key: String,
@@ -32,11 +18,7 @@ pub struct OpenAiCompatBackend {
 
 impl OpenAiCompatBackend {
     pub fn new(url: String, model: String, api_key: String, prompt: Option<String>) -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(45))
-            .build()
-            .expect("HTTP client init failed");
-        Self { client, url, model, api_key, prompt }
+        Self { url, model, api_key, prompt }
     }
 }
 
@@ -52,25 +34,12 @@ struct Message<'a> {
     content: &'a str,
 }
 
-#[derive(Deserialize)]
-struct ChatResponse {
-    choices: Vec<Choice>,
-}
-
-#[derive(Deserialize)]
-struct Choice {
-    message: MessageContent,
-}
-
-#[derive(Deserialize)]
-struct MessageContent {
-    content: String,
-}
-
 #[async_trait::async_trait]
 impl CleanupBackend for OpenAiCompatBackend {
     async fn refine(&self, raw: &str) -> Result<String, CleanupError> {
-        let clean_url = self.url.trim_end_matches('/');
+        policy::validate_endpoint(&self.url)?;
+
+        let clean_url = self.url.trim().trim_end_matches('/');
         let endpoint = if clean_url.ends_with("/chat/completions") {
             clean_url.to_string()
         } else if clean_url.ends_with("/v1") {
@@ -79,45 +48,66 @@ impl CleanupBackend for OpenAiCompatBackend {
             format!("{clean_url}/v1/chat/completions")
         };
 
-        let system_msg = match &self.prompt {
-            Some(p) if !p.trim().is_empty() => p.as_str(),
-            _ => SYSTEM_PROMPT,
-        };
-
+        let system = policy::guarded_system(self.prompt.as_deref().unwrap_or(""));
+        let user = policy::user_message(raw);
         let body = ChatRequest {
             model:    &self.model,
             messages: vec![
-                Message { role: "system", content: system_msg },
-                Message { role: "user",   content: raw },
+                Message { role: "system", content: &system },
+                Message { role: "user",   content: &user },
             ],
         };
 
-        let resp = self.client
+        let client = Client::builder()
+            .timeout(Duration::from_secs(45))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|e| CleanupError::Unreachable(format!("HTTP client: {e}")))?;
+
+        let shown = policy::public_url(&self.url);
+        let resp = client
             .post(&endpoint)
             .bearer_auth(&self.api_key)
             .json(&body)
             .send()
             .await
-            .map_err(|e| CleanupError::Unreachable(format!("{}: {e}", self.url)))?;
+            .map_err(|e| CleanupError::Unreachable(format!("{shown}: {e}")))?;
 
         match resp.status().as_u16() {
             200       => {}
+            301 | 302 | 303 | 307 | 308 => {
+                return Err(CleanupError::Request(
+                    "The cleanup server tried to redirect. Utter refused.".into(),
+                ));
+            }
             401 | 403 => return Err(CleanupError::Auth),
             429       => return Err(CleanupError::RateLimit),
-            other     => return Err(CleanupError::Request(format!("HTTP {other}"))),
+            other     => return Err(CleanupError::Request(format!("The cleanup server returned HTTP {other}."))),
         }
 
-        let chat: ChatResponse = resp.json().await.map_err(|e| {
-            CleanupError::Request(format!("parse response: {e}"))
-        })?;
+        let mut buf = Vec::new();
+        let mut resp = resp;
+        loop {
+            match resp.chunk().await {
+                Ok(Some(chunk)) => {
+                    if buf.len().saturating_add(chunk.len()) > policy::MAX_RESPONSE_BYTES {
+                        return Err(CleanupError::Request("Cleanup reply was too large.".into()));
+                    }
+                    buf.extend_from_slice(&chunk);
+                }
+                Ok(None) => break,
+                Err(e) => return Err(CleanupError::Request(format!("reading cleanup reply: {e}"))),
+            }
+        }
 
-        let content = chat
-            .choices
-            .into_iter()
-            .next()
-            .map(|c| c.message.content.trim().to_owned())
-            .unwrap_or_else(|| raw.to_owned()); // fallback: return raw if no choice
-
-        Ok(content)
+        let value: serde_json::Value = serde_json::from_slice(&buf)
+            .map_err(|e| CleanupError::Request(format!("Cleanup reply was not JSON: {e}")))?;
+        let text = value
+            .pointer("/choices/0/message/content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| CleanupError::Request(
+                "Cleanup reply did not contain transcript text. The original text was kept.".into(),
+            ))?;
+        policy::vet_output(raw, text)
     }
 }

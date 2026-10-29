@@ -6,21 +6,21 @@
 //   so they stay consistent with ARCHITECTURE.md §3.3 and the JS side can match them
 //   by string code without magic numbers.
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use thiserror::Error;
 
 /// All error codes that can be emitted to the webview.
-/// Codes match ARCHITECTURE.md §3.3 exactly.
-#[derive(Debug, Error, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(tag = "code", content = "message")]
+/// The serialized form is always `{ "code", "message" }` where `message`
+/// is a plain sentence the UI can show.
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum AppError {
-    #[error("OS denied microphone access")]
+    #[error("Microphone access is off. Turn on Utter in System Settings → Privacy & Security → Microphone, then try again.")]
     MicPermission,
 
     #[error("Another app holds the microphone")]
     MicBusy,
 
-    #[error("macOS Accessibility permission not granted")]
+    #[error("Accessibility is off, so the text was not typed into the other app. It is saved in History. Turn on Utter in System Settings → Privacy & Security → Accessibility, then dictate again.")]
     Accessibility,
 
     #[error("ASR model failed to load: {0}")]
@@ -38,11 +38,24 @@ pub enum AppError {
     #[error("Cleanup endpoint rate-limited")]
     CleanupRate,
 
-    #[error("Could not insert text into focused app")]
+    #[error("Could not insert text into the focused app. Click the text field and try again.")]
     InsertFailed,
 
-    #[error("Internal error — see logs: {0}")]
+    #[error("Utter cannot dictate on this computer. {0}")]
+    EngineUnavailable(String),
+
+    #[error("{0}")]
     Internal(String),
+}
+
+impl Serialize for AppError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("AppError", 2)?;
+        state.serialize_field("code", self.code())?;
+        state.serialize_field("message", &self.to_string())?;
+        state.end()
+    }
 }
 
 impl AppError {
@@ -58,6 +71,7 @@ impl AppError {
             AppError::CleanupAuth           => "E_CLEANUP_AUTH",
             AppError::CleanupRate           => "E_CLEANUP_RATE",
             AppError::InsertFailed          => "E_INSERT_FAILED",
+            AppError::EngineUnavailable(_)  => "E_ENGINE_UNAVAILABLE",
             AppError::Internal(_)           => "E_INTERNAL",
         }
     }

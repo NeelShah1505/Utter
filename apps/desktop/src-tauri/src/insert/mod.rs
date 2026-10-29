@@ -18,6 +18,7 @@
 //   CGEvent synthetic input works in any app without touching the clipboard.
 
 use crate::error::{AppError, Result};
+use crate::logic::{self, plan_edit};
 use enigo::{Direction, Enigo, Key, Keyboard, Settings as EnigoSettings};
 
 #[cfg(target_os = "macos")]
@@ -82,70 +83,78 @@ pub fn request_permission() -> bool {
     true
 }
 
-/// Insert `text` at the current cursor position in the focused application.
-pub fn insert_text(text: &str) -> Result<()> {
-    if text.is_empty() {
-        return Ok(());
+/// True while the user is in a secure input (password field).
+/// Typing there would inject keystrokes into a credential.
+#[cfg(target_os = "macos")]
+pub fn secure_input_active() -> bool {
+    #[link(name = "Carbon", kind = "framework")]
+    extern "C" {
+        fn IsSecureEventInputEnabled() -> bool;
     }
+    unsafe { IsSecureEventInputEnabled() }
+}
 
-    // If accessibility permissions are not granted, copy to clipboard as graceful fallback
+#[cfg(not(target_os = "macos"))]
+pub fn secure_input_active() -> bool {
+    false
+}
+
+fn guard_typing() -> Result<()> {
+    if secure_input_active() {
+        return Err(AppError::Internal(
+            "A password field is focused. Utter will not type into it. Move the cursor to a normal text field and dictate again. The text is in History.".into(),
+        ));
+    }
     if !is_trusted() {
-        log::warn!("Accessibility not granted. Copying final transcript to clipboard as fallback.");
-        if let Ok(mut clipboard) = arboard::Clipboard::new() {
-            let _ = clipboard.set_text(text);
-        }
-        return Ok(());
+        return Err(AppError::Accessibility);
     }
-
-    let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
-        AppError::Internal(format!("enigo init: {e}"))
-    })?;
-
-    enigo.text(text).map_err(|_| AppError::InsertFailed)?;
-
-    log::debug!("insert_text: directly inserted {} chars via keyboard synthetic input", text.len());
     Ok(())
 }
 
-/// Real-time streaming insertion: compares `old` vs `new`, sends Backspaces for diverged characters, and types the new delta suffix.
-pub fn insert_delta(old: &str, new: &str) -> Result<()> {
-    if old == new {
+/// Insert `text` at the current cursor position in the focused application.
+/// Does not touch the clipboard.
+pub fn insert_text(text: &str) -> Result<()> {
+    let text = logic::sanitize_insertion(text);
+    if text.is_empty() {
         return Ok(());
     }
-
-    // If accessibility is not granted, DO NOT attempt synthetic key events (prevents pop-up storms)
-    if !is_trusted() {
-        return Ok(());
-    }
-
-    let mut prefix_chars = 0;
-    let mut old_chars = old.chars();
-    let mut new_chars = new.chars();
-    while let (Some(c1), Some(c2)) = (old_chars.next(), new_chars.next()) {
-        if c1 == c2 {
-            prefix_chars += 1;
-        } else {
-            break;
-        }
-    }
-    
-    let old_total_chars = old.chars().count();
-    let num_backspaces = old_total_chars - prefix_chars;
-    let suffix: String = new.chars().skip(prefix_chars).collect();
+    guard_typing()?;
 
     let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
-        AppError::Internal(format!("enigo init: {e}"))
+        AppError::Internal(format!("Could not start keyboard input: {e}"))
     })?;
 
-    for _ in 0..num_backspaces {
-        let _ = enigo.key(Key::Backspace, Direction::Click);
+    enigo.text(&text).map_err(|_| AppError::InsertFailed)?;
+    log::debug!("insert_text: typed {} chars", text.chars().count());
+    Ok(())
+}
+
+/// Compare `old` vs `new`, send Backspace for the diverged characters, type the suffix.
+pub fn insert_delta(old: &str, new: &str) -> Result<()> {
+    let new = logic::sanitize_insertion(new);
+    let plan = plan_edit(old, &new);
+    if plan.backspaces == 0 && plan.suffix.is_empty() {
+        return Ok(());
+    }
+    guard_typing()?;
+
+    let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
+        AppError::Internal(format!("Could not start keyboard input: {e}"))
+    })?;
+
+    for _ in 0..plan.backspaces {
+        enigo.key(Key::Backspace, Direction::Click).map_err(|_| AppError::InsertFailed)?;
     }
 
-    if !suffix.is_empty() {
-        let _ = enigo.text(&suffix);
+    if !plan.suffix.is_empty() {
+        enigo.text(&plan.suffix).map_err(|_| AppError::InsertFailed)?;
     }
 
-    log::debug!("insert_delta: {} backspaces, typed {} new chars", num_backspaces, suffix.len());
+    log::debug!(
+        "insert_delta: {} backspaces, typed {} new chars",
+        plan.backspaces,
+        plan.suffix.chars().count()
+    );
     Ok(())
 }
 

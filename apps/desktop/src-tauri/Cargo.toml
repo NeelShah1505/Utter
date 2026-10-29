@@ -22,9 +22,6 @@ tauri = { version = "2", features = ["macos-private-api",
     "tray-icon",
 ] }
 tauri-plugin-global-shortcut = "2"
-tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 
 serde = { version = "1", features = ["derive"] }
@@ -49,7 +46,6 @@ enigo = "0.3"
 thiserror = "2"
 anyhow = "1"
 async-trait = "0.1"
-arboard = "3.6.1"
 
 # enigo handles macOS (CGEvent) and Windows (SendInput) internally — no manual platform deps needed.
 

@@ -246,7 +246,11 @@
           transcriptEl.textContent = payload.text || "";
         });
         await listen("transcript_final", ({ payload }) => {
-          transcriptEl.textContent = payload.text;
+          transcriptEl.textContent = payload.text || "";
+          if (payload.insert_error) {
+            applyState("Error", payload.insert_error);
+            return;
+          }
           setTimeout(() => applyState("Idle"), 1400);
         });
         try {

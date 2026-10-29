@@ -1,31 +1,15 @@
 // cleanup/ollama.rs — Ollama cleanup backend (local and remote).
 //
-// Speaks the Ollama OpenAI-compatible /api/chat endpoint.
-// Works for both LocalOllama (http://localhost:11434) and RemoteOllama.
-//
-// WHY not the Ollama-native /api/generate:
-//   /api/chat with a system prompt gives us a cleaner system/user separation.
-//   Using the OpenAI-compat format also makes it easy to swap backends.
-//
-// Security:
-//   - The bearer token (if any) is read from the OS keychain at build time.
-//     It is NEVER logged. It is NOT stored in the Settings struct (which is written to disk).
-//   - The raw transcript is sent ONLY to the configured endpoint.
+// Posts to the OpenAI-compatible /v1/chat/completions path, and also accepts
+// Ollama's native `{ "message": { "content" } }` body if a proxy returns that.
 
+use super::policy;
 use super::{CleanupBackend, CleanupError};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::Duration;
 
-/// System prompt sent to the model for every cleanup request.
-const SYSTEM_PROMPT: &str =
-    "You are a transcript editor. The user will give you a raw speech-to-text transcript. \
-     Your job is to fix grammar, remove filler words (um, uh, like, you know), and correct \
-     obvious transcription errors. Return ONLY the corrected transcript — no explanations, \
-     no comments, no surrounding quotes. Preserve meaning exactly. Do not add content.";
-
 pub struct OllamaBackend {
-    client:       Client,
     url:          String,
     model:        String,
     bearer_token: Option<String>,
@@ -34,13 +18,15 @@ pub struct OllamaBackend {
 
 impl OllamaBackend {
     pub fn new(url: String, model: String, bearer_token: Option<String>, prompt: Option<String>) -> Self {
-        let client = Client::builder()
+        Self { url, model, bearer_token, prompt }
+    }
+
+    fn client() -> Result<Client, CleanupError> {
+        Client::builder()
             .timeout(Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none())
             .build()
-            // reqwest::ClientBuilder::build only fails on TLS init errors,
-            // which would be a fatal misconfiguration — panic is appropriate.
-            .expect("HTTP client init failed");
-        Self { client, url, model, bearer_token, prompt }
+            .map_err(|e| CleanupError::Unreachable(format!("HTTP client: {e}")))
     }
 }
 
@@ -57,20 +43,12 @@ struct Message<'a> {
     content: &'a str,
 }
 
-#[derive(Deserialize)]
-struct ChatResponse {
-    message: MessageContent,
-}
-
-#[derive(Deserialize)]
-struct MessageContent {
-    content: String,
-}
-
 #[async_trait::async_trait]
 impl CleanupBackend for OllamaBackend {
     async fn refine(&self, raw: &str) -> Result<String, CleanupError> {
-        let clean_url = self.url.trim_end_matches('/');
+        policy::validate_endpoint(&self.url)?;
+
+        let clean_url = self.url.trim().trim_end_matches('/');
         let endpoint = if clean_url.ends_with("/chat/completions") {
             clean_url.to_string()
         } else if clean_url.ends_with("/v1") {
@@ -79,41 +57,75 @@ impl CleanupBackend for OllamaBackend {
             format!("{clean_url}/v1/chat/completions")
         };
 
-        let system_msg = match &self.prompt {
-            Some(p) if !p.trim().is_empty() => p.as_str(),
-            _ => SYSTEM_PROMPT,
-        };
-
+        let system = policy::guarded_system(self.prompt.as_deref().unwrap_or(""));
+        let user = policy::user_message(raw);
         let body = ChatRequest {
             model:    &self.model,
             messages: vec![
-                Message { role: "system", content: system_msg },
-                Message { role: "user",   content: raw },
+                Message { role: "system", content: &system },
+                Message { role: "user",   content: &user },
             ],
             stream: false,
         };
 
-        let mut req = self.client.post(&endpoint).json(&body);
-
+        let client = Self::client()?;
+        let mut req = client.post(&endpoint).json(&body);
         if let Some(token) = &self.bearer_token {
             req = req.bearer_auth(token);
         }
 
+        let shown = policy::public_url(&self.url);
         let resp = req.send().await.map_err(|e| {
-            CleanupError::Unreachable(format!("{}: {e}", self.url))
+            CleanupError::Unreachable(format!("{shown}: {e}"))
         })?;
 
         match resp.status().as_u16() {
             200        => {}
+            301 | 302 | 303 | 307 | 308 => {
+                return Err(CleanupError::Request(
+                    "The cleanup server tried to redirect. Utter refused.".into(),
+                ));
+            }
             401 | 403  => return Err(CleanupError::Auth),
             429        => return Err(CleanupError::RateLimit),
-            other      => return Err(CleanupError::Request(format!("HTTP {other}"))),
+            other      => return Err(CleanupError::Request(format!("The cleanup server returned HTTP {other}."))),
         }
 
-        let chat: ChatResponse = resp.json().await.map_err(|e| {
-            CleanupError::Request(format!("parse response: {e}"))
-        })?;
-
-        Ok(chat.message.content.trim().to_owned())
+        let bytes = read_limited(resp).await?;
+        let text = extract_text(&bytes)?;
+        policy::vet_output(raw, &text)
     }
+}
+
+async fn read_limited(mut resp: reqwest::Response) -> Result<Vec<u8>, CleanupError> {
+    let mut buf = Vec::new();
+    loop {
+        match resp.chunk().await {
+            Ok(Some(chunk)) => {
+                if buf.len().saturating_add(chunk.len()) > policy::MAX_RESPONSE_BYTES {
+                    return Err(CleanupError::Request("Cleanup reply was too large.".into()));
+                }
+                buf.extend_from_slice(&chunk);
+            }
+            Ok(None) => return Ok(buf),
+            Err(e) => return Err(CleanupError::Request(format!("reading cleanup reply: {e}"))),
+        }
+    }
+}
+
+fn extract_text(bytes: &[u8]) -> Result<String, CleanupError> {
+    let value: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|e| CleanupError::Request(format!("Cleanup reply was not JSON: {e}")))?;
+    if let Some(text) = value
+        .pointer("/choices/0/message/content")
+        .and_then(|v| v.as_str())
+    {
+        return Ok(text.to_string());
+    }
+    if let Some(text) = value.pointer("/message/content").and_then(|v| v.as_str()) {
+        return Ok(text.to_string());
+    }
+    Err(CleanupError::Request(
+        "Cleanup reply did not contain transcript text. The original text was kept.".into(),
+    ))
 }

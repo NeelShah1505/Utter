@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Utter windows. No shell, no dialog, no remote fetch from the webview.","local":true,"windows":["main","settings"],"permissions":["core:default","global-shortcut:default"]}}

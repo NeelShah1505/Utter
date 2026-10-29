@@ -1,0 +1,21 @@
+name: Bug
+description: Something Utter did wrong
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: Do not paste passwords, API keys, or a transcript you would not publish.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: macOS version and chip
+      placeholder: macOS 15, M3
+    validations:
+      required: true

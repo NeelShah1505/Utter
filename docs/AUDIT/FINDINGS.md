@@ -1,0 +1,45 @@
+# Findings ledger
+
+Audited 2026-10-29 on macOS 26.5.1 (build 25F80), arm64, rustc 1.88.0, Swift 6.1.
+
+Severity: S0 ship-blocker, S1 major, S2 moderate, S3 polish.
+
+| ID | Sev | Hat | Area | Evidence | Status |
+|----|-----|-----|------|----------|--------|
+| F-001 | S0 | Release | CI | `.github/workflows/build-release.yml` wrote `echo "placeholder - not a real installer"` into `app-macos-x64.dmg`, `app-windows-x64.msi`, and `app-windows-arm64.msi`. | Fixed. Those jobs are gone. Release uploads `app-macos-arm64.dmg` and its `.sha256` only. |
+| F-002 | S0 | Security | Speech | `helpers/utter_transcribe.swift` did not set `requiresOnDeviceRecognition`. Apple can use the network when that flag is false. | Fixed in source. Compiled object contains `supportsOnDeviceRecognition` and `setRequiresOnDeviceRecognition:` (see 03-release-readiness.md). Packet capture not run. |
+| F-003 | S0 | Security | History | `history.rs` writes `history.json` on every final transcript. `docs/SECURITY.md` said transcripts are not saved unless the user opts in. | Docs now match the code. Writes are atomic and mode 0600. Clear History deletes the file. Default remains on, and the Studio copy says so. |
+| F-004 | S0 | Platform | Swift build | `build.rs` hardcoded `-target arm64-apple-macos13.0`. | Fixed: target follows `TARGET` (`arm64` or `x86_64`, macOS 13). Intel job is not in CI. An Intel link was not run. |
+| F-005 | S0 | Product | Insertion | `commands.rs` called `insert_delta` on every partial. `SFSpeechRecognizer` revises partials, so the app sent backspaces into the focused app. | Fixed. `live_typing` defaults to false. The final string is typed once. |
+| F-006 | S0 | Security | Clipboard | `insert/mod.rs` copied the transcript to the clipboard when Accessibility was off, and did not restore the previous clipboard. | Fixed. The clipboard is not touched. The bubble shows the Accessibility error. The text stays in History. |
+| F-007 | S1 | Platform | Keychain | Service is `com.utter.app` (`cleanup/mod.rs`). Bundle id is `com.utter.studio` (`tauri.conf.json`). | Left as-is and documented. Changing either string orphans saved keys. A Developer ID build will not read Keychain items created by an ad-hoc build. FROM MEMORY — CHECK on a signed build. |
+| F-008 | S0 | Security | Cleanup | The raw transcript was the user message, with no delimiter. A spoken "ignore previous instructions" was instructions to the model. | Fixed: `<transcript>` wrapping, a system rule that overrides the user prompt, and rejection of replies that start like chatbot chatter. This is not a proof against a jailbroken model. |
+| F-009 | S1 | Security | Cleanup | HTTP was allowed to any host. Redirects followed. No response cap. Ollama posted to `/v1/chat/completions` and parsed the native `{message.content}` shape, so a normal Ollama reply failed the parse and was silently dropped. | Fixed: https, or http on localhost only; no userinfo in the URL; redirects refused; 32KB cap; both JSON shapes accepted. |
+| F-010 | S0 | Rust | Engines | `whisper_cpp.rs` and `apple_silicon.rs` `panic!` in `init`. Non-macOS builds select the whisper engine. | Fixed: `init` returns `EngineError::NotImplemented`, mapped to `E_ENGINE_UNAVAILABLE`. Those builds are not shipped. |
+| F-011 | S1 | Rust | Audio | The cpal callback locked a buffer and called into Swift. | Fixed: the callback only `try_send`s. A thread named `utter-audio-feed` calls `feed_audio`. The callback still allocates a `Vec` per chunk. |
+| F-012 | S2 | QA | Logs | `get_logs` returned `vec![]`. | It now reads `~/Library/Logs/Utter/crash.log`. There is still no live ring buffer. Nothing in the UI calls `get_logs`. |
+| F-013 | S1 | Platform | Locale | `utter_transcribe.swift` uses `Locale(identifier: "en-US")` only. | Open. Documented. Not a silent fallback to another language. |
+| F-014 | S0 | Release | Signing | `tauri.conf.json` has `"signingIdentity": null`. No notarization, no stapler, no updater keys. | Open. Needs an Apple Developer ID. Not invented here. |
+| F-015 | S2 | Hygiene | Repo | Unused React files in `components/ui/` and `apps/desktop/src/components/ui/`. | Deleted. |
+| F-016 | S0 | Product | Site | Homepage said "Everywhere" and "macOS and Windows", and the engine column said FluidAudio and whisper.cpp. | Copy now says macOS Apple Silicon, Apple on-device English. Unsupported rows say "Not shipped" and are not links. |
+| F-017 | S2 | UX | Hotkey | `main.rs` logs a failed hotkey registration and continues. The UI does not say the hotkey is dead. | Open. |
+| F-018 | S2 | Product | Dictionary | Default dictionary rewrote "neel" to "NEEL" and "utter" to "Utter Flow". | Default is empty. Existing `config.toml` files are left alone. |
+| F-019 | S1 | Security | Logs | `stop_dictation` logged the raw and final transcript with `{:?}`. | Logs the character count only. |
+| F-020 | S1 | UX | Newlines | A cleanup model can return newlines. Typing Return in Slack or Terminal can send or run a command. | `sanitize_insertion` turns newlines, tabs, and ESC sequences into spaces or nothing. Tested. |
+| F-021 | S1 | Platform | Secure input | No check before synthetic typing. | `IsSecureEventInputEnabled` (Carbon). The unit-test binary linked, so the symbol resolves. Not exercised against a password field in this session. |
+| F-022 | S2 | UX | Snippets | Studio showed "my email → name@example.com" as if the feature worked. The button had no handler. | Copy says the cards do nothing. The button is removed. |
+| F-023 | S2 | UX | Smart routing | The checkbox was not read or saved. Rust always classified the front app. | Saved as `smart_routing` (default true). It only changes the cleanup prompt. |
+| F-024 | S2 | Security | Plugins | `tauri-plugin-shell`, dialog, and notification were registered and unused. | Removed from `Cargo.toml` and `main.rs`. |
+| F-025 | S1 | QA | Runtime | No dictation was performed in this session. No packet capture. No clean-account install. | Open. See UNVERIFIED in the release note. |
+
+## Tests that exist now
+
+```
+cargo test --bin utter --manifest-path apps/desktop/src-tauri/Cargo.toml -- logic:: cleanup::policy::
+# 9 passed, 0 failed, 2026-10-29, debug profile, macOS 26.5.1 arm64
+
+node --test site/assets/detect.test.js site/assets/releases.test.js
+# 29 passed, 0 failed
+```
+
+There is no test that speaks into the microphone.

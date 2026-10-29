@@ -65,17 +65,22 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         locked.last_streamed.clone()
     };
 
+    let live_typing = settings.live_typing;
     let app_handle = app.clone();
     let stream_buffer = last_streamed_arc.clone();
     let on_partial = Box::new(move |transcript: String, is_final: bool| {
-        log::info!("Live partial: {}", transcript);
+        log::info!("partial transcript, {} chars, final={is_final}", transcript.chars().count());
         let _ = app_handle.emit("transcript_partial", serde_json::json!({ "text": transcript, "is_final": is_final }));
-        
-        // Real-time live cursor insertion!
-        let mut old = stream_buffer.lock().expect("stream buffer poisoned");
-        if !transcript.is_empty() && &*old != &transcript {
-            let _ = crate::insert::insert_delta(&old, &transcript);
-            *old = transcript;
+
+        if !live_typing || is_final {
+            return;
+        }
+        let typed = crate::logic::sanitize_insertion(&transcript);
+        let mut old = crate::state::unpoison(stream_buffer.lock());
+        if !typed.is_empty() && &*old != &typed {
+            if crate::insert::insert_delta(&old, &typed).is_ok() {
+                *old = typed;
+            }
         }
     });
 
@@ -89,30 +94,43 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         locked.audio_buffer.clone()
     };
 
+    let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(64);
     let engine_for_capture = engine.clone();
-    let mut engine_buf = Vec::with_capacity(8192);
-    let mut received_first_chunk = false;
+    let feeder = std::thread::Builder::new()
+        .name("utter-audio-feed".into())
+        .spawn(move || {
+            let mut pending = Vec::<f32>::new();
+            while let Ok(chunk) = rx.recv() {
+                pending.extend_from_slice(&chunk);
+                if pending.len() >= 8192 {
+                    let _ = engine_for_capture.feed_audio(session_id, &pending);
+                    pending.clear();
+                }
+            }
+            if !pending.is_empty() {
+                let _ = engine_for_capture.feed_audio(session_id, &pending);
+            }
+        })
+        .map_err(|e| AppError::Internal(format!("Could not start the audio thread: {e}")))?;
+
+    let mut announced_first_chunk = false;
     let capture = mic::CaptureHandle::start(&device, mic_config, move |chunk| {
-        if !received_first_chunk {
-            log::info!("Microphone successfully sent first audio chunk! (len: {})", chunk.len());
-            received_first_chunk = true;
+        if !announced_first_chunk {
+            log::info!("microphone delivered first chunk ({} samples)", chunk.len());
+            announced_first_chunk = true;
         }
-        let mut buf = audio_buffer.lock().expect("audio lock poisoned");
-        buf.extend_from_slice(chunk);
-        
-        // Accumulate into ~185ms chunks before feeding to Swift to force partials
-        engine_buf.extend_from_slice(chunk);
-        if engine_buf.len() >= 8192 {
-            let _ = engine_for_capture.feed_audio(session_id, &engine_buf);
-            engine_buf.clear();
+        if let Ok(mut buf) = audio_buffer.lock() {
+            buf.extend_from_slice(chunk);
         }
+        let _ = tx.try_send(chunk.to_vec());
     })?;
 
     {
-        let mut locked = state.lock().expect("state poisoned");
+        let mut locked = crate::state::unpoison(state.lock());
         locked.status         = Status::Listening;
         locked.session_id     = Some(session_id);
         locked.capture_handle = Some(capture);
+        locked.audio_feeder   = Some(feeder);
     }
 
     let active_app = detect_active_app();
@@ -158,15 +176,15 @@ pub async fn start_dictation(
 /// Called by both the IPC command and the hotkey handler.
 pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result<()> {
     // --- Grab what we need and stop the mic (brief lock) ---
-    let (engine, session_id, audio_buffer, cleanup_cfg, dictionary, last_streamed_arc) = {
-        let mut locked = state.lock().expect("state poisoned");
+    let (engine, session_id, audio_buffer, cleanup_cfg, dictionary, last_streamed_arc, smart_routing, capture, feeder) = {
+        let mut locked = crate::state::unpoison(state.lock());
 
         if locked.status != Status::Listening {
             return Ok(()); // idempotent
         }
 
-        // Drop the capture handle → cpal stream stops → mic closes
-        let _ = locked.capture_handle.take();
+        let capture = locked.capture_handle.take();
+        let feeder = locked.audio_feeder.take();
         locked.status = Status::Transcribing;
 
         (
@@ -176,8 +194,15 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
             locked.settings.cleanup.clone(),
             locked.settings.dictionary.clone(),
             locked.last_streamed.clone(),
+            locked.settings.smart_routing,
+            capture,
+            feeder,
         )
     };
+    drop(capture);
+    if let Some(handle) = feeder {
+        let _ = handle.join();
+    }
 
     let _ = app.emit("state_change", serde_json::json!({ "status": "Transcribing" }));
 
@@ -220,7 +245,7 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         err
     })?;
 
-    log::info!("stop_dictation: raw = {:?}", raw);
+    log::info!("stop_dictation: raw transcript is {} chars", raw.chars().count());
 
     // Snapshot what was actually typed to the cursor during real-time streaming
     let streamed_str = last_streamed_arc.lock().expect("stream poisoned").clone();
@@ -228,11 +253,15 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
     // --- Optional cleanup pass with Context-Aware Smart Routing ---
     let active_app = detect_active_app();
     let mut cleanup_cfg_effective = cleanup_cfg.clone();
-    let context_directive = match active_app.mode.as_str() {
+    let context_directive = if !smart_routing {
+        " Fix grammar, remove filler words (um, uh, like), and polish punctuation into crisp, natural sentences."
+    } else {
+        match active_app.mode.as_str() {
         "code" => " Format the text cleanly for code comments, technical markdown, or code identifiers. Suppress conversational filler and accurately preserve technical terms and variable casing.",
         "chat" => " Format the text as a natural, concise instant message with conversational punctuation.",
         "email" => " Format the text as a polished, professional email with well-structured sentences and a polite tone.",
         _ => " Fix grammar, remove filler words (um, uh, like), and polish punctuation into crisp, natural sentences.",
+        }
     };
 
     match cleanup_cfg_effective {
@@ -266,67 +295,70 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         .unwrap_or(raw.clone())
     };
 
-    // --- Apply custom dictionary rules ---
-    for item in &dictionary {
-        if let Some(ref rep) = item.replacement {
-            if !rep.is_empty() && !item.word.is_empty() {
-                final_text = final_text.replace(&item.word, rep);
-                final_text = final_text.replace(&item.word.to_lowercase(), rep);
-                let mut chars = item.word.chars();
-                if let Some(first) = chars.next() {
-                    let cap_word = format!("{}{}", first.to_uppercase(), chars.as_str());
-                    final_text = final_text.replace(&cap_word, rep);
-                }
+    let rules: Vec<(String, String)> = dictionary
+        .iter()
+        .filter_map(|item| {
+            let repl = item.replacement.clone()?;
+            if repl.is_empty() || item.word.is_empty() {
+                None
+            } else {
+                Some((item.word.clone(), repl))
             }
-        }
-    }
+        })
+        .collect();
+    final_text = crate::logic::apply_dictionary(&final_text, &rules);
+    final_text = crate::logic::sanitize_insertion(&final_text);
 
-    log::info!("stop_dictation: final = {:?}", final_text);
+    log::info!("stop_dictation: final transcript is {} chars", final_text.chars().count());
 
-    // --- Reconcile streamed text with final cleaned text ---
+    let mut insert_error: Option<String> = None;
     if !final_text.is_empty() {
         if let Err(e) = insert::insert_delta(&streamed_str, &final_text) {
-            log::warn!("insert_delta failed: {e} — falling back to standard insert");
-            if streamed_str.is_empty() {
-                let _ = insert::insert_text(&final_text);
-            }
+            log::warn!("text insertion failed: {e}");
+            insert_error = Some(e.to_string());
         }
     } else if !streamed_str.is_empty() {
-        let _ = insert::insert_delta(&streamed_str, "");
+        if let Err(e) = insert::insert_delta(&streamed_str, "") {
+            insert_error = Some(e.to_string());
+        }
     }
 
-    // --- Save to persistent disk history & emit final transcript event ---
     if !final_text.trim().is_empty() {
         let history_entry = crate::history::add_entry(&final_text).ok();
         let _ = app.emit(
             "transcript_final",
             serde_json::json!({
                 "text": final_text,
-                "entry": history_entry
+                "entry": history_entry,
+                "insert_error": insert_error,
             }),
         );
     } else {
         let _ = app.emit(
             "transcript_final",
-            serde_json::json!({ "text": final_text }),
+            serde_json::json!({ "text": final_text, "insert_error": insert_error }),
         );
     }
 
-    // --- Return to Idle ---
     {
-        let mut locked = state.lock().expect("state poisoned");
-        locked.status = Status::Idle;
-        locked.last_streamed.lock().expect("stream poisoned").clear();
+        let mut locked = crate::state::unpoison(state.lock());
+        if let Some(msg) = insert_error.clone() {
+            locked.status = Status::Error(msg);
+        } else {
+            locked.status = Status::Idle;
+        }
+        crate::state::unpoison(locked.last_streamed.lock()).clear();
     }
-    let _ = app.emit("state_change", serde_json::json!({ "status": "Idle" }));
-
-    // Hide the window after a short delay so the user can see the final text
-    // The front-end handles its own delay for the CSS transition, but we also hide the Tauri window.
-    if let Some(window) = app.get_webview_window("main") {
-        tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
-            let _ = window.hide();
-        });
+    if let Some(msg) = insert_error {
+        let _ = app.emit("state_change", serde_json::json!({ "status": "Error", "message": msg }));
+    } else {
+        let _ = app.emit("state_change", serde_json::json!({ "status": "Idle" }));
+        if let Some(window) = app.get_webview_window("main") {
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                let _ = window.hide();
+            });
+        }
     }
 
     Ok(())
@@ -488,8 +520,25 @@ pub struct LogEntry {
 
 #[tauri::command]
 pub fn get_logs() -> Vec<LogEntry> {
-    // TODO (Phase 5): ring-buffer log storage
-    vec![]
+    let path = if cfg!(target_os = "macos") {
+        dirs::home_dir().map(|h| h.join("Library/Logs/Utter/crash.log"))
+    } else {
+        dirs::config_dir().map(|d| d.join("Utter").join("logs").join("crash.log"))
+    };
+    let Some(path) = path else { return vec![] };
+    let raw = std::fs::read_to_string(&path).unwrap_or_default();
+    raw.lines()
+        .rev()
+        .take(200)
+        .map(|line| LogEntry {
+            timestamp: String::new(),
+            level: "crash".into(),
+            message: line.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect()
 }
 
 #[tauri::command]
@@ -572,49 +621,13 @@ pub fn detect_active_app() -> ActiveAppInfo {
                 .to_string_lossy()
                 .into_owned();
             
-            let bundle_lower = bundle_id.to_lowercase();
-            let name_lower = name.to_lowercase();
-
-            let (mode, mode_label, icon) = if bundle_lower.contains("vscode")
-                || bundle_lower.contains("cursor")
-                || bundle_lower.contains("xcode")
-                || bundle_lower.contains("sublime")
-                || bundle_lower.contains("intellij")
-                || bundle_lower.contains("pycharm")
-                || bundle_lower.contains("terminal")
-                || bundle_lower.contains("iterm")
-                || bundle_lower.contains("ghostty")
-                || bundle_lower.contains("alacritty")
-                || bundle_lower.contains("kitty")
-                || name_lower.contains("cursor")
-                || name_lower.contains("code")
-                || name_lower.contains("terminal")
-            {
-                ("code".to_string(), "Code Mode".to_string(), "code".to_string())
-            } else if bundle_lower.contains("slack")
-                || bundle_lower.contains("discord")
-                || bundle_lower.contains("whatsapp")
-                || bundle_lower.contains("telegram")
-                || bundle_lower.contains("messages")
-                || bundle_lower.contains("signal")
-            {
-                ("chat".to_string(), "Casual Chat".to_string(), "chat".to_string())
-            } else if bundle_lower.contains("mail")
-                || bundle_lower.contains("outlook")
-                || bundle_lower.contains("superhuman")
-                || bundle_lower.contains("spark")
-            {
-                ("email".to_string(), "Professional Email".to_string(), "email".to_string())
-            } else {
-                ("pro".to_string(), "Pro Document".to_string(), "pro".to_string())
-            };
-
+            let kind = crate::logic::classify_app(&bundle_id, &name);
             return ActiveAppInfo {
                 name,
                 bundle_id,
-                mode,
-                mode_label,
-                icon,
+                mode: kind.as_str().to_string(),
+                mode_label: kind.label().to_string(),
+                icon: kind.icon().to_string(),
             };
         }
     }

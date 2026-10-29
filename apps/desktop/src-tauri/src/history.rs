@@ -72,7 +72,7 @@ pub fn save(entries: &[HistoryEntry]) -> Result<()> {
     let path = history_path().map_err(|e| AppError::Internal(e.to_string()))?;
     let raw = serde_json::to_string_pretty(entries)
         .map_err(|e| AppError::Internal(format!("history serialize: {e}")))?;
-    std::fs::write(&path, raw)
+    crate::persist::atomic_write(&path, &raw)
         .map_err(|e| AppError::Internal(format!("history write {}: {e}", path.display())))?;
     Ok(())
 }
@@ -132,5 +132,10 @@ pub fn update_entry(id: &str, new_text: &str) -> Result<Vec<HistoryEntry>> {
 }
 
 pub fn clear_all() -> Result<()> {
-    save(&[])
+    let path = history_path().map_err(|e| AppError::Internal(e.to_string()))?;
+    if path.exists() {
+        std::fs::remove_file(&path)
+            .map_err(|e| AppError::Internal(format!("history delete {}: {e}", path.display())))?;
+    }
+    Ok(())
 }

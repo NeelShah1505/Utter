@@ -9,16 +9,17 @@
 
 These are commitments we make to users. Violating any of them is a critical bug.
 
-| Guarantee                                                              | Status |
-|------------------------------------------------------------------------|--------|
-| Audio never leaves the device for core dictation.                      | Enforced |
-| Transcripts never leave the device unless cleanup backend is configured.| Enforced |
-| No account required.                                                   | Enforced |
-| No telemetry, no analytics, no crash reporting in the desktop app.     | Enforced |
-| No third-party SDKs in the desktop app.                                | Enforced |
-| API keys (if user provides for cleanup) stored in OS keychain only.    | Enforced |
-| No microphone access until user explicitly starts dictation.           | Enforced |
-| Site (marketing page) sets no cookies and runs no third-party scripts. | Enforced |
+| Guarantee | Status |
+|-----------|--------|
+| Core dictation sets `requiresOnDeviceRecognition` and refuses to start if on-device English (US) is unavailable. It does not fall back to Apple's servers. | Enforced in `helpers/utter_transcribe.swift` |
+| Transcripts leave the device only when you turn cleanup on, and only to the URL you set. | Enforced. Default cleanup is off. |
+| Finished transcripts are saved in `history.json` until you clear History. This is local, mode 0600 on Unix, and it is on by default. | Enforced. The old "not saved unless you opt in" line was wrong. |
+| No account. | Enforced |
+| No telemetry and no network crash upload. A panic writes `~/Library/Logs/Utter/crash.log` on this Mac only. | Enforced |
+| Cleanup API keys go in the Keychain service `com.utter.app`, not in `config.toml`. | Enforced |
+| The app does not copy the transcript to the clipboard. | Enforced |
+| Utter does not type into a secure-input (password) field. | Enforced via `IsSecureEventInputEnabled` |
+| The marketing site sets no cookies and loads no third-party scripts. | Enforced |
 
 ---
 
@@ -69,9 +70,9 @@ These are commitments we make to users. Violating any of them is a critical bug.
 ```
 Microphone → App process (RAM) → ASR engine (RAM) → Text → Synthetic input → Focused app
 ```
-- Audio is processed in RAM and discarded immediately after transcription.
-- Transcripts are NOT written to disk by default.
-- Network: zero calls.
+- Audio is kept in RAM for the session and discarded when the session ends.
+- The finished transcript is written to `~/Library/Application Support/Utter/history.json` (mode 0600). Clear History deletes the file.
+- Network: none for speech. Apple on-device recognition is required. This has not been proven with a packet capture on a release build (see docs/AUDIT/03-release-readiness.md).
 
 ### 4.2 With cleanup backend enabled (opt-in)
 ```
@@ -162,7 +163,7 @@ Visitor browser → GitHub Pages (static HTML/CSS/JS)
 
 ## 9. Vulnerability Disclosure
 
-- **Report address:** TBD — create a `security@` alias or use GitHub's private vulnerability reporting.
+- **Report address:** open a private vulnerability report on the GitHub repository (`NeelShah1505/Utter`). There is no `security@` mailbox.
 - **Response SLA:** Acknowledge within 72 hours. Fix or mitigation within 30 days for high-severity, 90 days for medium.
 - **Credit:** Public credit in release notes unless reporter requests anonymity.
 

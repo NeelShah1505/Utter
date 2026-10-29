@@ -19,7 +19,7 @@ let currentSettings = {
   dictionary: []
 };
 
-let dictHistory = JSON.parse(localStorage.getItem('utter_history') || '[]');
+let dictHistory = [];
 
 // DOM Elements
 const navItems          = document.querySelectorAll('.nav-item[data-tab]');
@@ -497,6 +497,10 @@ async function loadSettings() {
 
   highlightActiveStyle(cleanup.prompt);
   updateAiEngineVisibility(engineType);
+  const liveEl = document.getElementById('toggle-live-typing');
+  if (liveEl) liveEl.checked = currentSettings.live_typing === true;
+  const routeEl = document.getElementById('toggle-smart-routing');
+  if (routeEl) routeEl.checked = currentSettings.smart_routing !== false;
   renderDictionary();
   updateHistoryUI();
 }
@@ -528,12 +532,16 @@ function buildSettingsObject() {
     };
   }
 
+  const liveEl = document.getElementById('toggle-live-typing');
+  const routeEl = document.getElementById('toggle-smart-routing');
   return {
     hotkey:       hotkeyInput.value.trim() || 'CmdOrCtrl+Shift+D',
     model_path:   modelSelect.value || '',
     audio_device: audioSelect.value === 'System Default Microphone' ? '' : audioSelect.value,
     cleanup:      cleanup,
-    dictionary:   currentSettings.dictionary || []
+    dictionary:   currentSettings.dictionary || [],
+    live_typing:  liveEl ? liveEl.checked : false,
+    smart_routing: routeEl ? routeEl.checked : true,
   };
 }
 
