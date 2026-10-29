@@ -59,8 +59,8 @@
       "icons/icon.ico"
     ],
     "category": "Utility",
-    "shortDescription": "Type with your voice. Everywhere. Offline.",
-    "longDescription": "Open-source voice dictation for macOS and Windows. Works completely offline — no account, no API key, no telemetry.",
+    "shortDescription": "Type with your voice on macOS. Private and on-device.",
+    "longDescription": "Open-source voice dictation for macOS (Apple Silicon). Transcribes on-device with Apple's speech recognition — no account, no API key, no telemetry. Requires the English (United States) dictation language installed in System Settings.",
     "macOS": {
       "entitlements": "entitlements.plist",
       "exceptionDomain": "",
