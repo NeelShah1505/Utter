@@ -55,7 +55,11 @@ pub fn public_url(raw: &str) -> String {
 }
 
 pub fn guarded_system(user_prompt: &str) -> String {
-    let mut prompt = user_prompt.trim().chars().take(MAX_PROMPT_CHARS).collect::<String>();
+    let mut prompt = user_prompt
+        .trim()
+        .chars()
+        .take(MAX_PROMPT_CHARS)
+        .collect::<String>();
     if prompt.is_empty() {
         prompt = "Fix grammar and remove filler words. Preserve meaning.".into();
     }
@@ -76,7 +80,9 @@ pub fn user_message(raw: &str) -> String {
 pub fn vet_output(raw: &str, output: &str) -> Result<String, CleanupError> {
     let cleaned = output.trim().trim_matches('"').trim().to_string();
     if cleaned.is_empty() {
-        return Err(CleanupError::Request("Cleanup returned an empty reply.".into()));
+        return Err(CleanupError::Request(
+            "Cleanup returned an empty reply.".into(),
+        ));
     }
     if cleaned.len() > MAX_RESPONSE_BYTES {
         return Err(CleanupError::Request("Cleanup reply was too long.".into()));

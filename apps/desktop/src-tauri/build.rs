@@ -2,11 +2,11 @@
 fn main() {
     #[cfg(target_os = "macos")]
     {
-        use std::process::Command;
         use std::env;
+        use std::process::Command;
 
         let out_dir = env::var("OUT_DIR").unwrap();
-        
+
         let target = env::var("TARGET").unwrap_or_default();
         let swift_target = if target.starts_with("x86_64") {
             "x86_64-apple-macos13.0"
@@ -15,29 +15,32 @@ fn main() {
         };
 
         let status = Command::new("swiftc")
-            .args(&[
-                "-c", "-O",
-                "-target", swift_target,
+            .args([
+                "-c",
+                "-O",
+                "-target",
+                swift_target,
                 "helpers/utter_transcribe.swift",
-                "-o", &format!("{}/utter_transcribe.o", out_dir)
+                "-o",
+                &format!("{out_dir}/utter_transcribe.o"),
             ])
             .status()
             .expect("Failed to compile Swift helper");
-            
+
         assert!(status.success(), "Swift compilation failed");
-        
+
         let status = Command::new("ar")
-            .args(&[
+            .args([
                 "crs",
-                &format!("{}/libutter_transcribe.a", out_dir),
-                &format!("{}/utter_transcribe.o", out_dir)
+                &format!("{out_dir}/libutter_transcribe.a"),
+                &format!("{out_dir}/utter_transcribe.o"),
             ])
             .status()
             .expect("Failed to archive Swift helper");
-            
+
         assert!(status.success(), "Swift archiving failed");
 
-        println!("cargo:rustc-link-search=native={}", out_dir);
+        println!("cargo:rustc-link-search=native={out_dir}");
         println!("cargo:rustc-link-lib=static=utter_transcribe");
         println!("cargo:rustc-link-search=/usr/lib/swift");
         println!("cargo:rustc-link-lib=swiftCore");
@@ -48,6 +51,6 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=AppKit");
         println!("cargo:rerun-if-changed=helpers/utter_transcribe.swift");
     }
-    
+
     tauri_build::build()
 }

@@ -41,9 +41,9 @@ impl From<CleanupError> for AppError {
     fn from(e: CleanupError) -> Self {
         match e {
             CleanupError::Unreachable(u) => AppError::CleanupUnreachable(u),
-            CleanupError::Auth           => AppError::CleanupAuth,
-            CleanupError::RateLimit      => AppError::CleanupRate,
-            CleanupError::Request(r)     => AppError::Internal(r),
+            CleanupError::Auth => AppError::CleanupAuth,
+            CleanupError::RateLimit => AppError::CleanupRate,
+            CleanupError::Request(r) => AppError::Internal(r),
         }
     }
 }
@@ -61,18 +61,34 @@ pub trait CleanupBackend: Send + Sync {
 /// Returns a NoOpCleanup if the config is None (default).
 pub fn build_backend(config: &CleanupConfig) -> Box<dyn CleanupBackend> {
     match config {
-        CleanupConfig::None => {
-            Box::new(noop::NoOpCleanup)
-        }
-        CleanupConfig::LocalOllama { url, model, prompt } => {
-            Box::new(ollama::OllamaBackend::new(url.clone(), model.clone(), None, prompt.clone()))
-        }
-        CleanupConfig::RemoteOllama { url, model, keychain_account, prompt } => {
+        CleanupConfig::None => Box::new(noop::NoOpCleanup),
+        CleanupConfig::LocalOllama { url, model, prompt } => Box::new(ollama::OllamaBackend::new(
+            url.clone(),
+            model.clone(),
+            None,
+            prompt.clone(),
+        )),
+        CleanupConfig::RemoteOllama {
+            url,
+            model,
+            keychain_account,
+            prompt,
+        } => {
             // Load bearer token from keychain — never stored in config file.
             let token = load_keychain_secret(keychain_account);
-            Box::new(ollama::OllamaBackend::new(url.clone(), model.clone(), token, prompt.clone()))
+            Box::new(ollama::OllamaBackend::new(
+                url.clone(),
+                model.clone(),
+                token,
+                prompt.clone(),
+            ))
         }
-        CleanupConfig::OpenAiCompat { url, model, keychain_account, prompt } => {
+        CleanupConfig::OpenAiCompat {
+            url,
+            model,
+            keychain_account,
+            prompt,
+        } => {
             let api_key = load_keychain_secret(keychain_account).unwrap_or_default();
             Box::new(openai_compat::OpenAiCompatBackend::new(
                 url.clone(),

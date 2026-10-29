@@ -51,7 +51,9 @@ fn install_panic_hook() {
     let path = crash_log_path();
     std::panic::set_hook(Box::new(move |info| {
         let msg = format!("{info}\n");
-        eprintln!("Utter crashed. A local note was saved. Nothing was sent over the network.\n{msg}");
+        eprintln!(
+            "Utter crashed. A local note was saved. Nothing was sent over the network.\n{msg}"
+        );
         if let Some(path) = &path {
             let _ = std::fs::OpenOptions::new()
                 .create(true)
@@ -74,10 +76,8 @@ fn main() {
     #[cfg(not(debug_assertions))]
     let default_level = "utter=info,warn";
 
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or(default_level),
-    )
-    .init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(default_level))
+        .init();
 
     log::info!("Utter v{} starting", env!("CARGO_PKG_VERSION"));
 

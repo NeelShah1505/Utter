@@ -49,7 +49,10 @@ pub enum AppError {
 }
 
 impl Serialize for AppError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("AppError", 2)?;
         state.serialize_field("code", self.code())?;
@@ -62,17 +65,17 @@ impl AppError {
     /// The error code string as sent to the webview (matches ARCHITECTURE.md §3.3).
     pub fn code(&self) -> &'static str {
         match self {
-            AppError::MicPermission         => "E_MIC_PERMISSION",
-            AppError::MicBusy               => "E_MIC_BUSY",
-            AppError::Accessibility         => "E_ACCESSIBILITY",
-            AppError::ModelLoad(_)          => "E_MODEL_LOAD",
-            AppError::ModelNotFound(_)      => "E_MODEL_NOT_FOUND",
+            AppError::MicPermission => "E_MIC_PERMISSION",
+            AppError::MicBusy => "E_MIC_BUSY",
+            AppError::Accessibility => "E_ACCESSIBILITY",
+            AppError::ModelLoad(_) => "E_MODEL_LOAD",
+            AppError::ModelNotFound(_) => "E_MODEL_NOT_FOUND",
             AppError::CleanupUnreachable(_) => "E_CLEANUP_UNREACHABLE",
-            AppError::CleanupAuth           => "E_CLEANUP_AUTH",
-            AppError::CleanupRate           => "E_CLEANUP_RATE",
-            AppError::InsertFailed          => "E_INSERT_FAILED",
-            AppError::EngineUnavailable(_)  => "E_ENGINE_UNAVAILABLE",
-            AppError::Internal(_)           => "E_INTERNAL",
+            AppError::CleanupAuth => "E_CLEANUP_AUTH",
+            AppError::CleanupRate => "E_CLEANUP_RATE",
+            AppError::InsertFailed => "E_INSERT_FAILED",
+            AppError::EngineUnavailable(_) => "E_ENGINE_UNAVAILABLE",
+            AppError::Internal(_) => "E_INTERNAL",
         }
     }
 }

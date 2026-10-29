@@ -46,10 +46,10 @@ pub enum EngineError {
 impl From<EngineError> for AppError {
     fn from(e: EngineError) -> Self {
         match e {
-            EngineError::ModelLoad(m)     => AppError::ModelLoad(m),
+            EngineError::ModelLoad(m) => AppError::ModelLoad(m),
             EngineError::ModelNotFound(m) => AppError::ModelNotFound(m),
-            EngineError::NotImplemented(m)=> AppError::EngineUnavailable(m),
-            other                         => AppError::Internal(other.to_string()),
+            EngineError::NotImplemented(m) => AppError::EngineUnavailable(m),
+            other => AppError::Internal(other.to_string()),
         }
     }
 }
@@ -65,7 +65,7 @@ pub trait AsrEngine: Send + Sync {
     /// Begin a new transcription session. Returns an opaque session handle.
     /// `on_partial` is called asynchronously with (transcript, is_final) whenever a new result is available.
     fn start_session(
-        &self, 
+        &self,
         sample_rate: u32,
         on_partial: Box<dyn Fn(String, bool) + Send + 'static>,
     ) -> Result<SessionId, EngineError>;

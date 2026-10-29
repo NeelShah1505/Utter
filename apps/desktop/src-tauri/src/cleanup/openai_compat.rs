@@ -10,27 +10,32 @@ use serde::Serialize;
 use std::time::Duration;
 
 pub struct OpenAiCompatBackend {
-    url:     String,
-    model:   String,
+    url: String,
+    model: String,
     api_key: String,
-    prompt:  Option<String>,
+    prompt: Option<String>,
 }
 
 impl OpenAiCompatBackend {
     pub fn new(url: String, model: String, api_key: String, prompt: Option<String>) -> Self {
-        Self { url, model, api_key, prompt }
+        Self {
+            url,
+            model,
+            api_key,
+            prompt,
+        }
     }
 }
 
 #[derive(Serialize)]
 struct ChatRequest<'a> {
-    model:    &'a str,
+    model: &'a str,
     messages: Vec<Message<'a>>,
 }
 
 #[derive(Serialize)]
 struct Message<'a> {
-    role:    &'a str,
+    role: &'a str,
     content: &'a str,
 }
 
@@ -51,10 +56,16 @@ impl CleanupBackend for OpenAiCompatBackend {
         let system = policy::guarded_system(self.prompt.as_deref().unwrap_or(""));
         let user = policy::user_message(raw);
         let body = ChatRequest {
-            model:    &self.model,
+            model: &self.model,
             messages: vec![
-                Message { role: "system", content: &system },
-                Message { role: "user",   content: &user },
+                Message {
+                    role: "system",
+                    content: &system,
+                },
+                Message {
+                    role: "user",
+                    content: &user,
+                },
             ],
         };
 
@@ -74,15 +85,19 @@ impl CleanupBackend for OpenAiCompatBackend {
             .map_err(|e| CleanupError::Unreachable(format!("{shown}: {e}")))?;
 
         match resp.status().as_u16() {
-            200       => {}
+            200 => {}
             301 | 302 | 303 | 307 | 308 => {
                 return Err(CleanupError::Request(
                     "The cleanup server tried to redirect. Utter refused.".into(),
                 ));
             }
             401 | 403 => return Err(CleanupError::Auth),
-            429       => return Err(CleanupError::RateLimit),
-            other     => return Err(CleanupError::Request(format!("The cleanup server returned HTTP {other}."))),
+            429 => return Err(CleanupError::RateLimit),
+            other => {
+                return Err(CleanupError::Request(format!(
+                    "The cleanup server returned HTTP {other}."
+                )))
+            }
         }
 
         let mut buf = Vec::new();
@@ -105,9 +120,12 @@ impl CleanupBackend for OpenAiCompatBackend {
         let text = value
             .pointer("/choices/0/message/content")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| CleanupError::Request(
-                "Cleanup reply did not contain transcript text. The original text was kept.".into(),
-            ))?;
+            .ok_or_else(|| {
+                CleanupError::Request(
+                    "Cleanup reply did not contain transcript text. The original text was kept."
+                        .into(),
+                )
+            })?;
         policy::vet_output(raw, text)
     }
 }

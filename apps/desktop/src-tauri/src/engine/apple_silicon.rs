@@ -37,9 +37,9 @@ impl AsrEngine for AppleSiliconEngine {
     }
 
     fn start_session(
-        &self, 
+        &self,
         _sample_rate: u32,
-        _on_partial: Box<dyn Fn(String, bool) + Send + 'static>
+        _on_partial: Box<dyn Fn(String, bool) + Send + 'static>,
     ) -> Result<SessionId, EngineError> {
         Err(EngineError::NotImplemented(
             "AppleSiliconEngine::start_session — Phase 3".into(),

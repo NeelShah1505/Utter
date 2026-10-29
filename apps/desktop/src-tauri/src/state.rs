@@ -62,14 +62,14 @@ pub fn unpoison<T>(result: std::sync::LockResult<T>) -> T {
 impl AppState {
     pub fn new() -> Self {
         Self {
-            status:         Status::Idle,
-            session_id:     None,
-            audio_buffer:   Arc::new(Mutex::new(Vec::with_capacity(16_000 * 60))),
-            last_streamed:  Arc::new(Mutex::new(String::new())),
+            status: Status::Idle,
+            session_id: None,
+            audio_buffer: Arc::new(Mutex::new(Vec::with_capacity(16_000 * 60))),
+            last_streamed: Arc::new(Mutex::new(String::new())),
             capture_handle: None,
-            engine:         None,
-            audio_feeder:   None,
-            settings:       settings::load(),
+            engine: None,
+            audio_feeder: None,
+            settings: settings::load(),
             startup_warning: None,
         }
     }

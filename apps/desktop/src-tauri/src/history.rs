@@ -19,7 +19,10 @@ pub struct HistoryEntry {
 fn format_current_time() -> String {
     #[cfg(target_os = "macos")]
     {
-        if let Ok(output) = std::process::Command::new("date").arg("+%b %d • %I:%M %p").output() {
+        if let Ok(output) = std::process::Command::new("date")
+            .arg("+%b %d • %I:%M %p")
+            .output()
+        {
             let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !s.is_empty() {
                 return s;
@@ -107,7 +110,7 @@ pub fn add_entry(text: &str) -> Result<HistoryEntry> {
     }
 
     save(&entries)?;
-    log::info!("history: added entry with {} words", word_count);
+    log::info!("history: added entry with {word_count} words");
     Ok(entry)
 }
 

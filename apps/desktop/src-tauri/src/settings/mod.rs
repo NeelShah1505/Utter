@@ -59,12 +59,12 @@ fn default_true() -> bool {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            hotkey:       "CmdOrCtrl+Shift+D".into(),
-            model_path:   String::new(),
+            hotkey: "CmdOrCtrl+Shift+D".into(),
+            model_path: String::new(),
             audio_device: String::new(),
-            cleanup:      CleanupConfig::None,
-            dictionary:   Vec::new(),
-            live_typing:  false,
+            cleanup: CleanupConfig::None,
+            dictionary: Vec::new(),
+            live_typing: false,
             smart_routing: true,
         }
     }
@@ -80,7 +80,7 @@ pub enum CleanupConfig {
     /// Local Ollama instance (http://localhost:11434 by default).
     LocalOllama {
         #[serde(default = "default_ollama_url")]
-        url:   String,
+        url: String,
         /// Model name, e.g. "llama3" or "qwen2.5".
         model: String,
         /// Custom user prompt for AI styling
@@ -90,7 +90,7 @@ pub enum CleanupConfig {
 
     /// Remote Ollama instance. URL + optional bearer token stored in keychain.
     RemoteOllama {
-        url:   String,
+        url: String,
         model: String,
         /// keychain account name for the bearer token (if any)
         #[serde(default)]
@@ -102,7 +102,7 @@ pub enum CleanupConfig {
 
     /// Any OpenAI-compatible endpoint. API key stored in keychain.
     OpenAiCompat {
-        url:   String,
+        url: String,
         model: String,
         /// keychain account name for the API key
         keychain_account: String,
@@ -130,7 +130,7 @@ pub fn config_path() -> std::result::Result<PathBuf, std::io::Error> {
 /// or cannot be parsed (we don't fail-hard on a bad config — we warn and reset).
 pub fn load() -> Settings {
     let path = match config_path() {
-        Ok(p)  => p,
+        Ok(p) => p,
         Err(e) => {
             log::warn!("settings: could not determine config path: {e}");
             return Settings::default();
@@ -142,7 +142,7 @@ pub fn load() -> Settings {
     }
 
     let raw = match std::fs::read_to_string(&path) {
-        Ok(s)  => s,
+        Ok(s) => s,
         Err(e) => {
             log::warn!("settings: could not read {}: {e}", path.display());
             return Settings::default();
@@ -150,9 +150,12 @@ pub fn load() -> Settings {
     };
 
     match toml::from_str::<Settings>(&raw) {
-        Ok(s)  => s,
+        Ok(s) => s,
         Err(e) => {
-            log::warn!("settings: parse error in {}: {e} — using defaults", path.display());
+            log::warn!(
+                "settings: parse error in {}: {e} — using defaults",
+                path.display()
+            );
             Settings::default()
         }
     }
