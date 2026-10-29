@@ -43,8 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+      # Prebuilt binary — avoids a ~5 min from-source `cargo install` each run.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
       - name: Audit
         working-directory: apps/desktop/src-tauri
         run: cargo audit
