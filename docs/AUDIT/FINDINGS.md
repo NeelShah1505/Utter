@@ -19,7 +19,7 @@ Severity: S0 ship-blocker, S1 major, S2 moderate, S3 polish.
 | F-011 | S1 | Rust | Audio | The cpal callback locked a buffer and called into Swift. | Fixed: the callback only `try_send`s. A thread named `utter-audio-feed` calls `feed_audio`. The callback still allocates a `Vec` per chunk. |
 | F-012 | S2 | QA | Logs | `get_logs` returned `vec![]`. | Settings has Copy diagnostics. The report is version, status, cleanup type, startup warning, and `crash.log`. No transcripts and no API keys. |
 | F-013 | S1 | Platform | Locale | `utter_transcribe.swift` uses `Locale(identifier: "en-US")` only. | Open. Documented. Not a silent fallback to another language. |
-| F-014 | S0 | Release | Signing | `tauri.conf.json` has `"signingIdentity": null`. No notarization, no stapler, no updater keys. | Open. Needs an Apple Developer ID. Not invented here. |
+| F-014 | S0 | Release | Signing | `tauri.conf.json` has `"signingIdentity": null`. No notarization, no stapler, no updater keys. | Pipeline ready 2026-10-29, cert still needed. `build-release.yml` now passes `APPLE_CERTIFICATE`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` to the build; Tauri signs + notarizes + staples when they are set and falls back to ad-hoc when they are not. `docs/RELEASING.md` lists the exact secrets and verification commands. No certificate was invented. Still an S0 until a notarized dmg is confirmed on a clean machine (needs an Apple Developer ID). |
 | F-015 | S2 | Hygiene | Repo | Unused React files in `components/ui/` and `apps/desktop/src/components/ui/`. | Deleted. |
 | F-016 | S0 | Product | Site | Homepage said "Everywhere" and "macOS and Windows", and the engine column said FluidAudio and whisper.cpp. | Copy now says macOS Apple Silicon, Apple on-device English. Unsupported rows say "Not shipped" and are not links. |
 | F-017 | S2 | UX | Hotkey | `main.rs` logged a failed hotkey registration and continued. | Studio shows a banner from `get_startup_warning`. Saving a hotkey that fails returns that error to the save button. |
@@ -33,16 +33,25 @@ Severity: S0 ship-blocker, S1 major, S2 moderate, S3 polish.
 | F-025 | S1 | QA | Runtime | No dictation was performed. No packet capture. No clean-account install. | Partially closed 2026-10-29: clean `cargo tauri build` produces `Utter.app` + `Utter_0.1.0_aarch64.dmg` (arm64), and the release binary boots to the tray without panic (`hotkey: registered`, `setup complete`; RSS ~84 MB, CPU 0.3% just after boot). A spoken dictation, packet capture, and clean-account install still need a human at the machine. |
 | F-026 | S1 | Rust | Lint | `cargo clippy --all-targets -- -D warnings` failed: 6 errors in `build.rs` (`needless_borrow`, `uninlined_format_args`) and 11 in the crate (`duplicated_attributes` on an `extern` block in `insert/mod.rs`, collapsible `if`, `match`-as-equality, a manual loop, etc.). The ledger implied lint was clean; it was never run with `-D warnings`. | Fixed 2026-10-29. `clippy --all-targets -- -D warnings` and `cargo fmt --check` both pass. The duplicated `#[link]` was split into one `extern` block per framework. |
 | F-027 | S1 | Release | CI | `.github/workflows/ci.yml` ran only `cargo test --bin utter`. No clippy, no fmt, no dependency audit — yet the Definition of Done requires "CI green on lint, tests, audit." | Fixed 2026-10-29. CI now runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, and a separate `cargo audit` job. |
+| F-030 | S0 | Product | Bundle | `tauri.conf.json` `shortDescription` said "Type with your voice. Everywhere. Offline." and `longDescription` said "for macOS and Windows. Works completely offline." F-016 fixed the site but not the installer metadata (shown in Finder Get Info and the dmg). | Fixed 2026-10-29. Copy now says macOS Apple Silicon, on-device Apple speech, English (US) language required. |
+| F-029 | S2 | Rust | FFI | `engine/macos_speech.rs` `end_session` frees the `CallbackState` box (`Box::from_raw`) right after `speech_free_stream`. A late `SFSpeechRecognizer` callback already past Swift's `[weak self]` guard could call back into the freed `context_ptr` on the sync queue — a narrow use-after-free window on the FFI boundary. | Open, documented, not blind-fixed. `[weak self]` prevents the common case (self goes nil → early return). The remaining race is between the final `recv` and the free on a different thread. A correct fix (keep the box alive behind an `Arc` with a liveness flag, or gate free on the Swift queue) needs a dictation harness to verify; flagged for when F-025's runtime test exists. |
 | F-028 | S1 | Security | Deps | `cargo audit` reported 11 vulnerabilities in the live TLS/HTTP stack (`rustls` 0.23.42, `rustls-webpki`, `webpki-roots`) plus stale `quinn-proto` lock entries not in the build graph. The rustls advisories (TLS 1.3 cross-level acceptance, ServerHello downgrade, distrusted intermediates) bear on the cleanup-endpoint threat model (F-009). | Fixed 2026-10-29 by a targeted `cargo update -p rustls -p rustls-webpki -p webpki-roots -p quinn-proto` (rustls → 0.23.46). `tauri` untouched, so the crate still builds on rustc 1.88. `cargo audit` now reports 0 vulnerabilities; the 13 remaining are `unmaintained`/`unsound` warnings in Tauri's Linux-only GTK/D-Bus transitive deps, which do not fail the gate and are not compiled on macOS. |
 
 ## Tests that exist now
 
 ```
-cargo test --bin utter --manifest-path apps/desktop/src-tauri/Cargo.toml -- logic:: cleanup::policy::
-# 9 passed, 0 failed, 2026-10-29, debug profile, macOS 26.5.1 arm64
+cargo test --bin utter --manifest-path apps/desktop/src-tauri/Cargo.toml
+# 15 passed, 0 failed, 2026-10-29, debug profile, macOS 26.5.1 arm64
+# covers: plan_edit diff/stitch, sanitize, dictionary, app classification,
+#         cleanup URL policy + prompt-injection vetting, history parse/corruption
+#         recovery, atomic write + 0600 permissions
 
 node --test site/assets/detect.test.js site/assets/releases.test.js
 # 29 passed, 0 failed
+
+cargo clippy --all-targets -- -D warnings   # clean
+cargo fmt --check                           # clean
+cargo audit                                 # 0 vulnerabilities (13 allowed warnings)
 ```
 
 There is no test that speaks into the microphone.
