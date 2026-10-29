@@ -57,6 +57,17 @@ jobs:
 
       - name: Build macOS Apple Silicon
         working-directory: ./apps/desktop
+        env:
+          # Developer ID signing + notarization. When these secrets are unset
+          # (e.g. a fork), Tauri falls back to ad-hoc signing and still produces
+          # a dmg — it just will not pass Gatekeeper on a clean machine.
+          # See docs/RELEASING.md for how to create each secret.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cargo tauri build --target aarch64-apple-darwin
           mkdir -p ../../dist
