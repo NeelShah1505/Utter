@@ -28,6 +28,10 @@ pub struct Settings {
     /// Global hotkey string. Default: "CmdOrCtrl+Shift+D"
     pub hotkey: String,
 
+    /// Which speech engine to use (Apple on-device, or whisper.cpp).
+    #[serde(default)]
+    pub engine: crate::engine::EngineKind,
+
     /// Path to the ASR model file. Empty = use bundled default.
     pub model_path: String,
 
@@ -60,6 +64,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             hotkey: "CmdOrCtrl+Shift+D".into(),
+            engine: crate::engine::EngineKind::default(),
             model_path: String::new(),
             audio_device: String::new(),
             cleanup: CleanupConfig::None,

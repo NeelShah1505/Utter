@@ -13,15 +13,31 @@ pub mod macos_speech;
 pub mod whisper_cpp;
 
 use crate::error::AppError;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Opaque session handle. u64 is sufficient for a per-process monotonic counter.
 pub type SessionId = u64;
 
+/// Which speech engine to run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum EngineKind {
+    /// Apple SFSpeechRecognizer — zero download, macOS only, en-US.
+    #[default]
+    Apple,
+    /// whisper.cpp — needs a model file, higher accuracy, cross-platform.
+    Whisper,
+}
+
 /// Configuration passed to `AsrEngine::init`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct EngineConfig {
     /// Path to the model file. Empty = use platform default.
     pub model_path: String,
+    /// Recognition bias (whisper `initial_prompt`): custom vocabulary so proper
+    /// nouns and code terms are recognized during decoding, not patched after.
+    pub prompt_hint: String,
 }
 
 /// Errors specific to the ASR engine layer.
@@ -78,13 +94,23 @@ pub trait AsrEngine: Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
-// Compile-time platform selection
+// Runtime engine selection
 // ---------------------------------------------------------------------------
 
-/// The concrete engine used on macOS (both arm64 and x86_64).
-#[cfg(target_os = "macos")]
-pub type PlatformEngine = macos_speech::MacOsSpeechEngine;
-
-/// The concrete engine used on Windows/Linux (Phase 3 — currently stubs).
-#[cfg(not(target_os = "macos"))]
-pub type PlatformEngine = whisper_cpp::WhisperCppEngine;
+/// Build the engine the user selected. `init` is not object-safe (it returns
+/// `Self`), so we call it on the concrete type here and hand back a trait object
+/// the rest of the app stores behind `Arc<dyn AsrEngine>`.
+pub fn create_engine(
+    kind: EngineKind,
+    config: &EngineConfig,
+) -> Result<Arc<dyn AsrEngine>, EngineError> {
+    match kind {
+        #[cfg(target_os = "macos")]
+        EngineKind::Apple => Ok(Arc::new(macos_speech::MacOsSpeechEngine::init(config)?)),
+        #[cfg(not(target_os = "macos"))]
+        EngineKind::Apple => Err(EngineError::NotImplemented(
+            "Apple speech recognition is only available on macOS.".into(),
+        )),
+        EngineKind::Whisper => Ok(Arc::new(whisper_cpp::WhisperCppEngine::init(config)?)),
+    }
+}

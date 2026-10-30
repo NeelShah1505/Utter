@@ -8,7 +8,7 @@
 //
 // SharedState = Arc<Mutex<AppState>> — shared between Tauri commands and hotkey handler.
 
-use crate::engine::{PlatformEngine, SessionId};
+use crate::engine::{AsrEngine, SessionId};
 use crate::mic::CaptureHandle;
 use crate::settings::{self, Settings};
 use serde::{Deserialize, Serialize};
@@ -41,8 +41,9 @@ pub struct AppState {
     /// Owns the cpal stream. Dropping it stops the microphone.
     pub capture_handle: Option<CaptureHandle>,
 
-    /// Initialised lazily on first dictation.
-    pub engine: Option<Arc<PlatformEngine>>,
+    /// Initialised lazily on first dictation. Trait object so the engine can be
+    /// chosen at runtime (Apple or whisper.cpp).
+    pub engine: Option<Arc<dyn AsrEngine>>,
 
     /// Thread that forwards mic chunks to the speech engine.
     /// Joined on stop, after the capture handle (and its channel sender) is dropped.

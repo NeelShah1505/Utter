@@ -34,6 +34,9 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 keyring = "3"
 dirs = "6"
 
+# Speech engine — whisper.cpp via safe Rust bindings (builds whisper.cpp).
+whisper-rs = "0.14"
+
 # Audio capture
 cpal = "0.15"
 # cpal's CoreAudio Stream is !Send, so we wrap it in SendWrapper to store in Tauri state
@@ -48,6 +51,10 @@ anyhow = "1"
 async-trait = "0.1"
 
 # enigo handles macOS (CGEvent) and Windows (SendInput) internally — no manual platform deps needed.
+
+[dev-dependencies]
+# WAV reading for the offline transcription benchmark (tests/examples only).
+hound = "3"
 
 [profile.dev]
 incremental = true

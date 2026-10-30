@@ -8,7 +8,7 @@
 
 use crate::{
     cleanup,
-    engine::{AsrEngine, EngineConfig, EngineError, PlatformEngine},
+    engine::{AsrEngine, EngineConfig, EngineError},
     error::{AppError, Result},
     insert, mic,
     settings::{self, Settings},
@@ -43,15 +43,25 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         _ => {}
     }
 
-    // Initialise engine lazily on first use
-    let engine: Arc<PlatformEngine> = match engine {
+    // Initialise engine lazily on first use.
+    let engine: Arc<dyn AsrEngine> = match engine {
         Some(e) => e,
         None => {
+            // Dictionary words become the engine's recognition bias (whisper
+            // initial_prompt), so proper nouns/code terms are heard correctly.
+            let prompt_hint = settings
+                .dictionary
+                .iter()
+                .map(|d| d.word.clone())
+                .filter(|w| !w.is_empty())
+                .collect::<Vec<_>>()
+                .join(", ");
             let config = EngineConfig {
                 model_path: settings.model_path.clone(),
+                prompt_hint,
             };
-            let eng = PlatformEngine::init(&config).map_err(AppError::from)?;
-            let arc = Arc::new(eng);
+            let arc =
+                crate::engine::create_engine(settings.engine, &config).map_err(AppError::from)?;
             state.lock().expect("state poisoned").engine = Some(arc.clone());
             arc
         }
