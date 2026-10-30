@@ -559,15 +559,31 @@
 
           <div class="setting-item-card">
             <div class="setting-desc">
-              <h4>Model file</h4>
-              <p>macOS uses Apple on-device speech. Files in this folder are listed for a future engine and are not used today.</p>
+              <h4>Transcription engine</h4>
+              <p>Apple on-device is instant and needs no download. Whisper is more accurate on numbers, names, and code terms, and lets your Dictionary bias recognition — it needs a one-time model download and runs fully offline.</p>
             </div>
             <div class="setting-control">
-              <select id="model-select" class="select-control">
-                <option value="">Bundled High-Speed Apple Speech / Default</option>
-              </select>
+              <div class="engine-choice" role="radiogroup" aria-label="Transcription engine">
+                <label class="engine-opt"><input type="radio" name="speech-engine" value="apple" checked> Apple on-device</label>
+                <label class="engine-opt"><input type="radio" name="speech-engine" value="whisper"> Whisper</label>
+              </div>
             </div>
           </div>
+
+          <div class="setting-item-card" id="whisper-models-card" hidden>
+            <div class="setting-desc">
+              <h4>Whisper model</h4>
+              <p>Download one model, then select it. Larger models are more accurate but slower and bigger.</p>
+            </div>
+            <div class="setting-control">
+              <div id="whisper-models-list" class="whisper-models"></div>
+            </div>
+          </div>
+
+          <!-- Hidden: source of truth for model_path, kept for backward compat. -->
+          <select id="model-select" class="select-control" hidden>
+            <option value="">Default</option>
+          </select>
 
           <div class="setting-item-card">
             <div class="setting-desc">

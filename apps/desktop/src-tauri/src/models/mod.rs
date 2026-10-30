@@ -19,6 +19,8 @@ pub struct ModelCatalogEntry {
     pub approx_mb: u32,
     pub note: String,
     pub installed: bool,
+    /// Absolute path where this model lives once installed.
+    pub path: String,
 }
 
 /// The models Utter offers to download. base.en is the sensible default;
@@ -71,14 +73,18 @@ pub fn catalog() -> Result<Vec<ModelCatalogEntry>> {
     let dir = models_dir()?;
     Ok(catalog_raw()
         .into_iter()
-        .map(|(id, label, file, url, mb, note)| ModelCatalogEntry {
-            id: id.into(),
-            label: label.into(),
-            file: file.into(),
-            url: url.into(),
-            approx_mb: mb,
-            note: note.into(),
-            installed: dir.join(file).exists(),
+        .map(|(id, label, file, url, mb, note)| {
+            let path = dir.join(file);
+            ModelCatalogEntry {
+                id: id.into(),
+                label: label.into(),
+                file: file.into(),
+                url: url.into(),
+                approx_mb: mb,
+                note: note.into(),
+                installed: path.exists(),
+                path: path.to_string_lossy().into_owned(),
+            }
         })
         .collect())
 }
