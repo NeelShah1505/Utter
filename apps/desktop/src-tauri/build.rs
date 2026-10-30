@@ -14,12 +14,16 @@ fn main() {
             "arm64-apple-macos13.0"
         };
 
+        // Whole-module compile of the helper sources into a single object.
+        // stitcher_test.swift is intentionally excluded (it has its own @main).
         let status = Command::new("swiftc")
             .args([
                 "-c",
                 "-O",
+                "-wmo",
                 "-target",
                 swift_target,
+                "helpers/stitcher.swift",
                 "helpers/utter_transcribe.swift",
                 "-o",
                 &format!("{out_dir}/utter_transcribe.o"),
@@ -50,6 +54,7 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=Foundation");
         println!("cargo:rustc-link-lib=framework=AppKit");
         println!("cargo:rerun-if-changed=helpers/utter_transcribe.swift");
+        println!("cargo:rerun-if-changed=helpers/stitcher.swift");
     }
 
     tauri_build::build()
