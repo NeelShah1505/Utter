@@ -8,10 +8,9 @@
 
 use crate::{
     cleanup,
-    engine::{AsrEngine, EngineConfig, EngineError, PlatformEngine},
+    engine::{AsrEngine, EngineConfig, EngineError},
     error::{AppError, Result},
-    insert,
-    mic,
+    insert, mic,
     settings::{self, Settings},
     state::{SharedState, Status},
 };
@@ -32,7 +31,11 @@ use tauri::{AppHandle, Emitter, Manager, State};
 pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Result<()> {
     let (current_status, engine, settings) = {
         let locked = state.lock().expect("state poisoned");
-        (locked.status.clone(), locked.engine.clone(), locked.settings.clone())
+        (
+            locked.status.clone(),
+            locked.engine.clone(),
+            locked.settings.clone(),
+        )
     };
 
     match current_status {
@@ -40,13 +43,25 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         _ => {}
     }
 
-    // Initialise engine lazily on first use
-    let engine: Arc<PlatformEngine> = match engine {
+    // Initialise engine lazily on first use.
+    let engine: Arc<dyn AsrEngine> = match engine {
         Some(e) => e,
         None => {
-            let config = EngineConfig { model_path: settings.model_path.clone() };
-            let eng = PlatformEngine::init(&config).map_err(AppError::from)?;
-            let arc = Arc::new(eng);
+            // Dictionary words become the engine's recognition bias (whisper
+            // initial_prompt), so proper nouns/code terms are heard correctly.
+            let prompt_hint = settings
+                .dictionary
+                .iter()
+                .map(|d| d.word.clone())
+                .filter(|w| !w.is_empty())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let config = EngineConfig {
+                model_path: settings.model_path.clone(),
+                prompt_hint,
+            };
+            let arc =
+                crate::engine::create_engine(settings.engine, &config).map_err(AppError::from)?;
             state.lock().expect("state poisoned").engine = Some(arc.clone());
             arc
         }
@@ -57,11 +72,15 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
     log::info!("Found device. Getting preferred config...");
     let mic_config = mic::preferred_config(&device)?;
     let sample_rate = mic_config.sample_rate().0;
-    log::info!("Mic config: {} Hz", sample_rate);
+    log::info!("Mic config: {sample_rate} Hz");
 
     let last_streamed_arc = {
         let locked = state.lock().expect("state poisoned");
-        locked.last_streamed.lock().expect("last_streamed poisoned").clear();
+        locked
+            .last_streamed
+            .lock()
+            .expect("last_streamed poisoned")
+            .clear();
         locked.last_streamed.clone()
     };
 
@@ -69,28 +88,38 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
     let app_handle = app.clone();
     let stream_buffer = last_streamed_arc.clone();
     let on_partial = Box::new(move |transcript: String, is_final: bool| {
-        log::info!("partial transcript, {} chars, final={is_final}", transcript.chars().count());
-        let _ = app_handle.emit("transcript_partial", serde_json::json!({ "text": transcript, "is_final": is_final }));
+        log::info!(
+            "partial transcript, {} chars, final={is_final}",
+            transcript.chars().count()
+        );
+        let _ = app_handle.emit(
+            "transcript_partial",
+            serde_json::json!({ "text": transcript, "is_final": is_final }),
+        );
 
         if !live_typing || is_final {
             return;
         }
         let typed = crate::logic::sanitize_insertion(&transcript);
         let mut old = crate::state::unpoison(stream_buffer.lock());
-        if !typed.is_empty() && &*old != &typed {
-            if crate::insert::insert_delta(&old, &typed).is_ok() {
-                *old = typed;
-            }
+        if !typed.is_empty() && *old != typed && crate::insert::insert_delta(&old, &typed).is_ok() {
+            *old = typed;
         }
     });
 
     log::info!("Starting ASR session...");
-    let session_id = engine.start_session(sample_rate, on_partial).map_err(AppError::from)?;
+    let session_id = engine
+        .start_session(sample_rate, on_partial)
+        .map_err(AppError::from)?;
     log::info!("ASR session started! ID: {session_id}");
 
     let audio_buffer = {
         let locked = state.lock().expect("state poisoned");
-        locked.audio_buffer.lock().expect("audio lock poisoned").clear();
+        locked
+            .audio_buffer
+            .lock()
+            .expect("audio lock poisoned")
+            .clear();
         locked.audio_buffer.clone()
     };
 
@@ -127,22 +156,29 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
 
     {
         let mut locked = crate::state::unpoison(state.lock());
-        locked.status         = Status::Listening;
-        locked.session_id     = Some(session_id);
+        locked.status = Status::Listening;
+        locked.session_id = Some(session_id);
         locked.capture_handle = Some(capture);
-        locked.audio_feeder   = Some(feeder);
+        locked.audio_feeder = Some(feeder);
     }
 
     let active_app = detect_active_app();
-    log::info!("Smart Routing detected target app: {} (mode: {})", active_app.name, active_app.mode_label);
+    log::info!(
+        "Smart Routing detected target app: {} (mode: {})",
+        active_app.name,
+        active_app.mode_label
+    );
     let _ = app.emit("active_app_detected", &active_app);
 
     log::info!("Emitting state_change 'Listening' to frontend...");
-    let _ = app.emit("state_change", serde_json::json!({ 
-        "status": "Listening",
-        "app": active_app 
-    }));
-    
+    let _ = app.emit(
+        "state_change",
+        serde_json::json!({
+            "status": "Listening",
+            "app": active_app
+        }),
+    );
+
     // Show the main bubble window without stealing focus from user's active editor!
     if let Some(window) = app.get_webview_window("main") {
         log::info!("Showing bubble window...");
@@ -151,7 +187,7 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
     } else {
         log::error!("CRITICAL: 'main' window not found!");
     }
-    
+
     log::info!("start_dictation_impl completed successfully.");
 
     log::info!("start_dictation: mic open, session {session_id}");
@@ -164,19 +200,25 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
 
 /// Start dictation (IPC). Transitions: Idle → Listening.
 #[tauri::command]
-pub async fn start_dictation(
-    app: AppHandle,
-    state: State<'_, SharedState>,
-) -> Result<()> {
+pub async fn start_dictation(app: AppHandle, state: State<'_, SharedState>) -> Result<()> {
     start_dictation_impl(&app, &state).await
 }
-
 
 /// Core logic for stopping dictation.
 /// Called by both the IPC command and the hotkey handler.
 pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result<()> {
     // --- Grab what we need and stop the mic (brief lock) ---
-    let (engine, session_id, audio_buffer, cleanup_cfg, dictionary, last_streamed_arc, smart_routing, capture, feeder) = {
+    let (
+        engine,
+        session_id,
+        audio_buffer,
+        cleanup_cfg,
+        dictionary,
+        last_streamed_arc,
+        smart_routing,
+        capture,
+        feeder,
+    ) = {
         let mut locked = crate::state::unpoison(state.lock());
 
         if locked.status != Status::Listening {
@@ -204,14 +246,20 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         let _ = handle.join();
     }
 
-    let _ = app.emit("state_change", serde_json::json!({ "status": "Transcribing" }));
+    let _ = app.emit(
+        "state_change",
+        serde_json::json!({ "status": "Transcribing" }),
+    );
 
     // --- Validate engine and session ---
     let engine = match engine {
         Some(e) => e,
         None => {
             let msg = "Engine not initialised".to_string();
-            let _ = app.emit("state_change", serde_json::json!({ "status": "Error", "message": msg }));
+            let _ = app.emit(
+                "state_change",
+                serde_json::json!({ "status": "Error", "message": msg }),
+            );
             let mut locked = state.lock().expect("state poisoned");
             locked.status = Status::Error(msg.clone());
             return Err(AppError::Internal(msg));
@@ -233,19 +281,26 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         buf.clone()
     };
 
-    log::info!("stop_dictation: {:.1}s of audio, running ASR…", samples.len() as f32 / 16000.0);
+    log::info!(
+        "stop_dictation: {:.1}s of audio, running ASR…",
+        samples.len() as f32 / 16000.0
+    );
 
     let engine_clone = engine.clone();
-    let raw = tokio::task::spawn_blocking(move || {
-        engine_clone.end_session(session_id)
-    }).await.unwrap_or_else(|e| Err(EngineError::Session(format!("spawn_blocking failed: {}", e)))).map_err(|e| {
-        let err = AppError::from(e);
-        let mut locked = state.lock().expect("state poisoned");
-        locked.status = Status::Error(err.to_string());
-        err
-    })?;
+    let raw = tokio::task::spawn_blocking(move || engine_clone.end_session(session_id))
+        .await
+        .unwrap_or_else(|e| Err(EngineError::Session(format!("spawn_blocking failed: {e}"))))
+        .map_err(|e| {
+            let err = AppError::from(e);
+            let mut locked = state.lock().expect("state poisoned");
+            locked.status = Status::Error(err.to_string());
+            err
+        })?;
 
-    log::info!("stop_dictation: raw transcript is {} chars", raw.chars().count());
+    log::info!(
+        "stop_dictation: raw transcript is {} chars",
+        raw.chars().count()
+    );
 
     // Snapshot what was actually typed to the cursor during real-time streaming
     let streamed_str = last_streamed_arc.lock().expect("stream poisoned").clone();
@@ -264,35 +319,33 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         }
     };
 
-    match cleanup_cfg_effective {
-        settings::CleanupConfig::OpenAiCompat { ref mut prompt, .. } => {
-            if prompt.is_none() || prompt.as_deref() == Some("") {
-                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
-            }
+    // All three LLM backends share one default system prompt; fill it in only
+    // when the user left the prompt blank.
+    let prompt_slot = match cleanup_cfg_effective {
+        settings::CleanupConfig::OpenAiCompat { ref mut prompt, .. }
+        | settings::CleanupConfig::LocalOllama { ref mut prompt, .. }
+        | settings::CleanupConfig::RemoteOllama { ref mut prompt, .. } => Some(prompt),
+        settings::CleanupConfig::None => None,
+    };
+    if let Some(prompt) = prompt_slot {
+        if prompt.is_none() || prompt.as_deref() == Some("") {
+            *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
         }
-        settings::CleanupConfig::LocalOllama { ref mut prompt, .. } => {
-            if prompt.is_none() || prompt.as_deref() == Some("") {
-                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
-            }
-        }
-        settings::CleanupConfig::RemoteOllama { ref mut prompt, .. } => {
-            if prompt.is_none() || prompt.as_deref() == Some("") {
-                *prompt = Some(format!("You are a transcript editor.{context_directive} Return ONLY the final corrected transcript — no explanations, no comments, no quotes."));
-            }
-        }
-        _ => {}
     }
 
     let backend = cleanup::build_backend(&cleanup_cfg_effective);
     let mut final_text = if raw.is_empty() {
         String::new()
     } else {
-        backend.refine(&raw).await.map_err(|e| {
-            let err = AppError::from(e);
-            log::warn!("cleanup failed: {err} — using raw transcript");
-            err
-        })
-        .unwrap_or(raw.clone())
+        backend
+            .refine(&raw)
+            .await
+            .map_err(|e| {
+                let err = AppError::from(e);
+                log::warn!("cleanup failed: {err} — using raw transcript");
+                err
+            })
+            .unwrap_or(raw.clone())
     };
 
     let rules: Vec<(String, String)> = dictionary
@@ -309,7 +362,10 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
     final_text = crate::logic::apply_dictionary(&final_text, &rules);
     final_text = crate::logic::sanitize_insertion(&final_text);
 
-    log::info!("stop_dictation: final transcript is {} chars", final_text.chars().count());
+    log::info!(
+        "stop_dictation: final transcript is {} chars",
+        final_text.chars().count()
+    );
 
     let mut insert_error: Option<String> = None;
     if !final_text.is_empty() {
@@ -350,7 +406,10 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
         crate::state::unpoison(locked.last_streamed.lock()).clear();
     }
     if let Some(msg) = insert_error {
-        let _ = app.emit("state_change", serde_json::json!({ "status": "Error", "message": msg }));
+        let _ = app.emit(
+            "state_change",
+            serde_json::json!({ "status": "Error", "message": msg }),
+        );
     } else {
         let _ = app.emit("state_change", serde_json::json!({ "status": "Idle" }));
         if let Some(window) = app.get_webview_window("main") {
@@ -366,10 +425,7 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
 
 /// Stop dictation (IPC). Transitions: Listening → Transcribing → Idle.
 #[tauri::command]
-pub async fn stop_dictation(
-    app: AppHandle,
-    state: State<'_, SharedState>,
-) -> Result<()> {
+pub async fn stop_dictation(app: AppHandle, state: State<'_, SharedState>) -> Result<()> {
     stop_dictation_impl(&app, &state).await
 }
 
@@ -398,7 +454,7 @@ pub fn set_settings(
     new_settings: Settings,
 ) -> Result<()> {
     settings::save(&new_settings)?;
-    
+
     // Unregister old hotkeys and register the new one
     let _ = crate::hotkey::unregister_all(&app);
     let hotkey_result = crate::hotkey::register(&app, state.inner().clone(), &new_settings.hotkey);
@@ -426,7 +482,11 @@ pub fn set_settings(
 
 #[tauri::command]
 pub fn get_startup_warning(state: State<'_, SharedState>) -> Option<String> {
-    state.lock().expect("state poisoned").startup_warning.clone()
+    state
+        .lock()
+        .expect("state poisoned")
+        .startup_warning
+        .clone()
 }
 
 /// Text the user can paste into a bug report. No transcripts, no API keys.
@@ -439,7 +499,10 @@ pub fn diagnostics_report(state: State<'_, SharedState>) -> String {
         crate::settings::CleanupConfig::RemoteOllama { .. } => "remote Ollama",
         crate::settings::CleanupConfig::OpenAiCompat { .. } => "OpenAI-compatible",
     };
-    let warning = locked.startup_warning.clone().unwrap_or_else(|| "none".into());
+    let warning = locked
+        .startup_warning
+        .clone()
+        .unwrap_or_else(|| "none".into());
     let status = format!("{:?}", locked.status);
     drop(locked);
 
@@ -487,8 +550,8 @@ pub fn list_audio_devices() -> Result<Vec<String>> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModelInfo {
-    pub name:       String,
-    pub path:       String,
+    pub name: String,
+    pub path: String,
     pub size_bytes: u64,
 }
 
@@ -496,9 +559,11 @@ pub struct ModelInfo {
 pub fn list_models() -> Vec<ModelInfo> {
     let base = match dirs::config_dir() {
         Some(d) => d.join("Utter").join("models"),
-        None    => return vec![],
+        None => return vec![],
     };
-    if !base.exists() { return vec![]; }
+    if !base.exists() {
+        return vec![];
+    }
 
     std::fs::read_dir(&base)
         .ok()
@@ -511,11 +576,23 @@ pub fn list_models() -> Vec<ModelInfo> {
             n.ends_with(".bin") || n.ends_with(".gguf") || n.ends_with(".mlmodelc")
         })
         .map(|e| ModelInfo {
-            name:       e.file_name().to_string_lossy().into_owned(),
-            path:       e.path().to_string_lossy().into_owned(),
+            name: e.file_name().to_string_lossy().into_owned(),
+            path: e.path().to_string_lossy().into_owned(),
             size_bytes: e.metadata().map(|m| m.len()).unwrap_or(0),
         })
         .collect()
+}
+
+/// The downloadable Whisper model catalog, with an `installed` flag per entry.
+#[tauri::command]
+pub fn list_model_catalog() -> Result<Vec<crate::models::ModelCatalogEntry>> {
+    crate::models::catalog()
+}
+
+/// Download a Whisper model by catalog id. Emits `model_download_progress`.
+#[tauri::command]
+pub async fn download_model(app: AppHandle, id: String) -> Result<String> {
+    crate::models::download(&app, &id).await
 }
 
 // ---------------------------------------------------------------------------
@@ -524,20 +601,17 @@ pub fn list_models() -> Vec<ModelInfo> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CleanupTestResult {
-    pub input:      String,
-    pub output:     String,
+    pub input: String,
+    pub output: String,
     pub latency_ms: u128,
 }
 
 #[tauri::command]
 pub async fn test_cleanup(settings: Settings) -> Result<CleanupTestResult> {
-    match &settings.cleanup {
-        crate::settings::CleanupConfig::None => {
-            return Err(AppError::Internal(
-                "Raw Transcription (None) is active. Select Local Ollama or Cloud AI to test connection.".into(),
-            ));
-        }
-        _ => {}
+    if settings.cleanup == crate::settings::CleanupConfig::None {
+        return Err(AppError::Internal(
+            "Raw Transcription (None) is active. Select Local Ollama or Cloud AI to test connection.".into(),
+        ));
     }
 
     let backend = cleanup::build_backend(&settings.cleanup);
@@ -548,7 +622,7 @@ pub async fn test_cleanup(settings: Settings) -> Result<CleanupTestResult> {
     let latency_ms = start.elapsed().as_millis();
 
     Ok(CleanupTestResult {
-        input:  TEST_INPUT.into(),
+        input: TEST_INPUT.into(),
         output,
         latency_ms,
     })
@@ -561,8 +635,8 @@ pub async fn test_cleanup(settings: Settings) -> Result<CleanupTestResult> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogEntry {
     pub timestamp: String,
-    pub level:     String,
-    pub message:   String,
+    pub level: String,
+    pub message: String,
 }
 
 #[tauri::command]
@@ -609,7 +683,10 @@ pub fn delete_history_item(id: String) -> Result<Vec<crate::history::HistoryEntr
 }
 
 #[tauri::command]
-pub fn update_history_item(id: String, new_text: String) -> Result<Vec<crate::history::HistoryEntry>> {
+pub fn update_history_item(
+    id: String,
+    new_text: String,
+) -> Result<Vec<crate::history::HistoryEntry>> {
     crate::history::update_entry(&id, &new_text)
 }
 
@@ -653,12 +730,7 @@ pub fn detect_active_app() -> ActiveAppInfo {
         let mut name_buf = [0 as std::os::raw::c_char; 256];
         let mut bundle_buf = [0 as std::os::raw::c_char; 256];
         let ok = unsafe {
-            get_frontmost_app_info(
-                name_buf.as_mut_ptr(),
-                256,
-                bundle_buf.as_mut_ptr(),
-                256,
-            )
+            get_frontmost_app_info(name_buf.as_mut_ptr(), 256, bundle_buf.as_mut_ptr(), 256)
         };
         if ok {
             let name = unsafe { std::ffi::CStr::from_ptr(name_buf.as_ptr()) }
@@ -667,7 +739,7 @@ pub fn detect_active_app() -> ActiveAppInfo {
             let bundle_id = unsafe { std::ffi::CStr::from_ptr(bundle_buf.as_ptr()) }
                 .to_string_lossy()
                 .into_owned();
-            
+
             let kind = crate::logic::classify_app(&bundle_id, &name);
             return ActiveAppInfo {
                 name,
@@ -692,4 +764,3 @@ pub fn detect_active_app() -> ActiveAppInfo {
 pub fn get_active_app() -> ActiveAppInfo {
     detect_active_app()
 }
-

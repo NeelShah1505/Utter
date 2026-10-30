@@ -19,7 +19,10 @@ pub struct HistoryEntry {
 fn format_current_time() -> String {
     #[cfg(target_os = "macos")]
     {
-        if let Ok(output) = std::process::Command::new("date").arg("+%b %d • %I:%M %p").output() {
+        if let Ok(output) = std::process::Command::new("date")
+            .arg("+%b %d • %I:%M %p")
+            .output()
+        {
             let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !s.is_empty() {
                 return s;
@@ -62,8 +65,15 @@ pub fn load() -> Vec<HistoryEntry> {
         }
     };
 
-    serde_json::from_str::<Vec<HistoryEntry>>(&raw).unwrap_or_else(|e| {
-        log::warn!("history: parse error in {}: {e}", path.display());
+    parse_entries(&raw)
+}
+
+/// Parse history JSON, recovering to an empty list on any corruption rather than
+/// crashing the app. Pulled out of `load` so it can be tested without the real
+/// Application Support directory.
+pub(crate) fn parse_entries(raw: &str) -> Vec<HistoryEntry> {
+    serde_json::from_str::<Vec<HistoryEntry>>(raw).unwrap_or_else(|e| {
+        log::warn!("history: parse error, discarding corrupt history: {e}");
         vec![]
     })
 }
@@ -107,7 +117,7 @@ pub fn add_entry(text: &str) -> Result<HistoryEntry> {
     }
 
     save(&entries)?;
-    log::info!("history: added entry with {} words", word_count);
+    log::info!("history: added entry with {word_count} words");
     Ok(entry)
 }
 
@@ -138,4 +148,49 @@ pub fn clear_all() -> Result<()> {
             .map_err(|e| AppError::Internal(format!("history delete {}: {e}", path.display())))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_valid_history() {
+        let raw = r#"[{"id":"a","text":"hello","timestamp":"now","word_count":1}]"#;
+        let entries = parse_entries(raw);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].text, "hello");
+    }
+
+    #[test]
+    fn parse_empty_and_whitespace() {
+        assert!(parse_entries("[]").is_empty());
+        assert!(parse_entries("").is_empty());
+        assert!(parse_entries("   \n").is_empty());
+    }
+
+    #[test]
+    fn parse_corrupt_recovers_to_empty() {
+        // Truncated, not-an-array, and wrong-shape inputs must never panic.
+        assert!(parse_entries("[{\"id\":\"a\",\"text\":").is_empty());
+        assert!(parse_entries("{\"not\":\"an array\"}").is_empty());
+        assert!(parse_entries("null").is_empty());
+        assert!(parse_entries("\0\0garbage").is_empty());
+    }
+
+    #[test]
+    fn parse_large_history_is_bounded_by_caller() {
+        // A 100k-entry file parses without panic; add_entry caps live size at 100.
+        let mut s = String::from("[");
+        for i in 0..100_000 {
+            if i > 0 {
+                s.push(',');
+            }
+            s.push_str(&format!(
+                "{{\"id\":\"h{i}\",\"text\":\"x\",\"timestamp\":\"t\",\"word_count\":1}}"
+            ));
+        }
+        s.push(']');
+        assert_eq!(parse_entries(&s).len(), 100_000);
+    }
 }
