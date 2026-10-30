@@ -583,6 +583,18 @@ pub fn list_models() -> Vec<ModelInfo> {
         .collect()
 }
 
+/// The downloadable Whisper model catalog, with an `installed` flag per entry.
+#[tauri::command]
+pub fn list_model_catalog() -> Result<Vec<crate::models::ModelCatalogEntry>> {
+    crate::models::catalog()
+}
+
+/// Download a Whisper model by catalog id. Emits `model_download_progress`.
+#[tauri::command]
+pub async fn download_model(app: AppHandle, id: String) -> Result<String> {
+    crate::models::download(&app, &id).await
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup test
 // ---------------------------------------------------------------------------

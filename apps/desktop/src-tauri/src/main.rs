@@ -25,6 +25,7 @@ mod hotkey;
 mod insert;
 mod logic;
 mod mic;
+mod models;
 mod persist;
 mod settings;
 mod state;
@@ -107,6 +108,8 @@ fn main() {
             commands::delete_keychain_secret,
             commands::list_audio_devices,
             commands::list_models,
+            commands::list_model_catalog,
+            commands::download_model,
             commands::test_cleanup,
             commands::get_logs,
             commands::get_startup_warning,
