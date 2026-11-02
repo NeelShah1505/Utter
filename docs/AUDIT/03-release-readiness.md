@@ -13,8 +13,29 @@ Host: macOS 26.5.1 (25F80), arm64. rustc 1.88.0. Swift 6.1. Debug `cargo test`, 
 - `setRequiresOnDeviceRecognition:` and `supportsOnDeviceRecognition` are in the compiled Swift object `utter_transcribe.o`. `strings` on that object also shows `setAddsPunctuation:`.
 - Lint gate is clean: `cargo clippy --all-targets -- -D warnings` and `cargo fmt --check` both pass (after F-026 fixes).
 - `cargo audit` reports **0 vulnerabilities** (after F-028); 13 remaining items are allowed unmaintained/unsound warnings in Tauri's Linux-only transitive deps.
-- `cargo test --bin utter`: 9 passed, 0 failed.
+- `cargo test --bin utter`: 17 passed, 0 failed (+4 ignored live/bench tests).
 - `node --test` on the site suites: 29 passed, 0 failed.
+
+### Engine benchmark (whisper.cpp), 2026-11-02
+
+Measured through the real `WhisperCppEngine` on this M-series Mac, 38 clips of
+`say`-generated speech across 5 English accents (US/GB/AU/IE/IN), scored with a
+word-error-rate script. This is synthetic read speech, not messy human audio —
+treat the WER as relative, not absolute, until confirmed on real voice (F-025).
+
+| Model | mean WER | median latency | real-time factor |
+|-------|----------|----------------|------------------|
+| base.en (default, ~142 MB) | 0.172 | 315–554 ms | ~0.07–0.12 |
+| small.en (~466 MB) | 0.153 | ~912 ms | ~0.19 |
+| large-v3-turbo (~1.6 GB) | 0.152 | ~6987 ms | ~1.56 (slower than realtime) |
+
+- Number/date normalization works: "four hundred twenty dollars… March third 2026" → "$420 on March 3, 2026".
+- Dictionary bias (whisper `initial_prompt`) fixes code terms: without hint "U-State/Qubectl"; with the dictionary "useState/kubectl/snake_case".
+- An 18.5 s clip returns whole — the engine buffers the utterance, so the Apple-engine "10 s cutoff" cannot occur here.
+- Metal was measured and dropped: it raised base.en latency (315→472 ms) from GPU per-call overhead on a small model and did not make large practical.
+- AI cleanup (local Ollama `llama3.1:8b`): self-correction works ("…nine a.m. oh no sorry …ten p.m." → "Book an appointment for 10 p.m."); filler/grammar clean; echoed `<transcript>` tags are stripped.
+
+Not yet done on the engine: a real-microphone dictation in the app, and a packet capture during dictation. The Whisper model download command is implemented but not exercised end-to-end.
 - The test binary linked, which means `IsSecureEventInputEnabled` in Carbon resolved. It was not called against a password field.
 - CI no longer has jobs that write the string `placeholder - not a real installer` into a `.dmg` or `.msi`, and now runs fmt, clippy, tests, and audit.
 
