@@ -72,6 +72,11 @@ fn resample_to_16k(input: &[f32], from_rate: u32) -> Vec<f32> {
 
 impl AsrEngine for WhisperCppEngine {
     fn init(config: &EngineConfig) -> Result<Self, EngineError> {
+        // Route whisper.cpp's chatty stderr through the `log` crate once, so it
+        // obeys our log level instead of spamming the terminal / crash log.
+        static LOG_HOOK: std::sync::Once = std::sync::Once::new();
+        LOG_HOOK.call_once(whisper_rs::install_logging_hooks);
+
         let model_path = resolve_model_path(&config.model_path)?;
         let ctx = WhisperContext::new_with_params(
             &model_path.to_string_lossy(),
@@ -173,17 +178,9 @@ mod tests {
         assert!(resample_to_16k(&[], 48_000).is_empty());
     }
 
-    /// Offline transcription benchmark against the real engine. Ignored by
-    /// default (needs a model + a wav). Run with:
-    ///   UTTER_TEST_MODEL=.../ggml-base.en.bin UTTER_TEST_WAV=.../clip.wav \
-    ///     cargo test --bin utter -- --ignored --nocapture whisper_transcribes_wav
-    #[test]
-    #[ignore]
-    fn whisper_transcribes_wav() {
-        let model = std::env::var("UTTER_TEST_MODEL").expect("set UTTER_TEST_MODEL");
-        let wav = std::env::var("UTTER_TEST_WAV").expect("set UTTER_TEST_WAV");
-
-        let mut reader = hound::WavReader::open(&wav).expect("open wav");
+    /// Decode a WAV to mono f32 plus its sample rate (downmixing if stereo).
+    fn load_wav_mono(path: &str) -> (Vec<f32>, u32) {
+        let mut reader = hound::WavReader::open(path).expect("open wav");
         let spec = reader.spec();
         let raw: Vec<f32> = match spec.sample_format {
             hound::SampleFormat::Int => reader
@@ -192,28 +189,95 @@ mod tests {
                 .collect(),
             hound::SampleFormat::Float => reader.samples::<f32>().map(|s| s.unwrap()).collect(),
         };
-        let mono: Vec<f32> = if spec.channels > 1 {
+        let mono = if spec.channels > 1 {
             raw.chunks(spec.channels as usize)
                 .map(|c| c.iter().sum::<f32>() / c.len() as f32)
                 .collect()
         } else {
             raw
         };
+        (mono, spec.sample_rate)
+    }
 
+    /// Run one clip through the real engine; returns (transcript, elapsed_ms).
+    fn transcribe(engine: &WhisperCppEngine, mono: &[f32], rate: u32) -> (String, u128) {
+        let sid = engine
+            .start_session(rate, Box::new(|_, _| {}))
+            .expect("start");
+        engine.feed_audio(sid, mono).expect("feed");
+        let t0 = std::time::Instant::now();
+        let text = engine.end_session(sid).expect("end");
+        (text, t0.elapsed().as_millis())
+    }
+
+    /// Offline transcription check against the real engine. Ignored by
+    /// default (needs a model + a wav). Run with:
+    ///   UTTER_TEST_MODEL=.../ggml-base.en.bin UTTER_TEST_WAV=.../clip.wav \
+    ///     cargo test --bin utter -- --ignored --nocapture whisper_transcribes_wav
+    #[test]
+    #[ignore]
+    fn whisper_transcribes_wav() {
+        let model = std::env::var("UTTER_TEST_MODEL").expect("set UTTER_TEST_MODEL");
+        let wav = std::env::var("UTTER_TEST_WAV").expect("set UTTER_TEST_WAV");
+        let (mono, rate) = load_wav_mono(&wav);
         let engine = WhisperCppEngine::init(&EngineConfig {
             model_path: model,
             prompt_hint: std::env::var("UTTER_TEST_HINT").unwrap_or_default(),
         })
         .expect("init engine");
-
-        let sid = engine
-            .start_session(spec.sample_rate, Box::new(|_, _| {}))
-            .expect("start");
-        engine.feed_audio(sid, &mono).expect("feed");
-        let t0 = std::time::Instant::now();
-        let text = engine.end_session(sid).expect("end");
+        let (text, ms) = transcribe(&engine, &mono, rate);
         eprintln!("TRANSCRIPT: {text}");
-        eprintln!("ELAPSED_MS: {}", t0.elapsed().as_millis());
+        eprintln!("ELAPSED_MS: {ms}");
         assert!(!text.is_empty(), "transcript should not be empty");
+    }
+
+    /// Manifest benchmark: load the model ONCE, run every clip, write JSONL.
+    /// Manifest is tab-separated: id, voice, rate, category, wav_path, reference.
+    ///   UTTER_TEST_MODEL=... UTTER_BENCH_MANIFEST=manifest.tsv UTTER_BENCH_OUT=out.jsonl \
+    ///     cargo test --bin utter -- --ignored --nocapture whisper_bench_manifest
+    #[test]
+    #[ignore]
+    fn whisper_bench_manifest() {
+        use std::io::Write;
+        let model = std::env::var("UTTER_TEST_MODEL").expect("set UTTER_TEST_MODEL");
+        let manifest = std::env::var("UTTER_BENCH_MANIFEST").expect("set UTTER_BENCH_MANIFEST");
+        let out_path = std::env::var("UTTER_BENCH_OUT").expect("set UTTER_BENCH_OUT");
+        let hint = std::env::var("UTTER_TEST_HINT").unwrap_or_default();
+
+        let t_load = std::time::Instant::now();
+        let engine = WhisperCppEngine::init(&EngineConfig {
+            model_path: model.clone(),
+            prompt_hint: hint,
+        })
+        .expect("init engine");
+        eprintln!("MODEL_LOAD_MS: {}", t_load.elapsed().as_millis());
+
+        let mut out = std::fs::File::create(&out_path).expect("create out");
+        let text = std::fs::read_to_string(&manifest).expect("read manifest");
+        let mut n = 0;
+        for line in text
+            .lines()
+            .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+        {
+            let f: Vec<&str> = line.split('\t').collect();
+            if f.len() < 6 {
+                eprintln!("skip malformed line: {line}");
+                continue;
+            }
+            let (id, voice, rate_tag, category, wav, reference) =
+                (f[0], f[1], f[2], f[3], f[4], f[5]);
+            let (mono, rate) = load_wav_mono(wav);
+            let audio_sec = mono.len() as f32 / rate as f32;
+            let (transcript, ms) = transcribe(&engine, &mono, rate);
+            let row = serde_json::json!({
+                "id": id, "voice": voice, "rate": rate_tag, "category": category,
+                "reference": reference, "transcript": transcript,
+                "elapsed_ms": ms, "audio_sec": audio_sec, "model": model,
+            });
+            writeln!(out, "{row}").expect("write row");
+            n += 1;
+        }
+        eprintln!("BENCH_DONE: {n} clips -> {out_path}");
+        assert!(n > 0, "manifest produced no rows");
     }
 }

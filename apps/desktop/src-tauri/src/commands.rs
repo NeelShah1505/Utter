@@ -8,7 +8,7 @@
 
 use crate::{
     cleanup,
-    engine::{AsrEngine, EngineConfig, EngineError},
+    engine::{AsrEngine, EngineConfig, EngineError, EngineKind},
     error::{AppError, Result},
     insert, mic,
     settings::{self, Settings},
@@ -60,8 +60,22 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
                 model_path: settings.model_path.clone(),
                 prompt_hint,
             };
-            let arc =
-                crate::engine::create_engine(settings.engine, &config).map_err(AppError::from)?;
+            let arc = match crate::engine::create_engine(settings.engine, &config) {
+                Ok(e) => e,
+                // Whisper selected but no model yet: fall back to Apple on-device
+                // so dictation still works on first run, and tell the user how to
+                // get the higher-accuracy engine. Only on macOS, where Apple exists.
+                Err(e) if settings.engine == EngineKind::Whisper && cfg!(target_os = "macos") => {
+                    log::warn!("whisper unavailable ({e}); falling back to Apple on-device");
+                    let fallback = crate::engine::create_engine(EngineKind::Apple, &config)
+                        .map_err(AppError::from)?;
+                    state.lock().expect("state poisoned").startup_warning = Some(
+                        "Dictating with Apple on-device speech. Download a Whisper model in Settings → Transcription engine for higher accuracy.".into(),
+                    );
+                    fallback
+                }
+                Err(e) => return Err(AppError::from(e)),
+            };
             state.lock().expect("state poisoned").engine = Some(arc.clone());
             arc
         }

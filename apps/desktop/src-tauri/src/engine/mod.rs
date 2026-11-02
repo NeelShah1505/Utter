@@ -24,9 +24,11 @@ pub type SessionId = u64;
 #[serde(rename_all = "lowercase")]
 pub enum EngineKind {
     /// Apple SFSpeechRecognizer — zero download, macOS only, en-US.
-    #[default]
     Apple,
     /// whisper.cpp — needs a model file, higher accuracy, cross-platform.
+    /// The default: higher accuracy wins. When no model is present yet, the app
+    /// falls back to Apple on-device and nudges the user to download a model.
+    #[default]
     Whisper,
 }
 

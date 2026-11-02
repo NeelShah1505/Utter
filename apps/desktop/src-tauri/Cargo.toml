@@ -36,6 +36,7 @@ keyring = "3"
 dirs = "6"
 
 # Speech engine — whisper.cpp via safe Rust bindings (builds whisper.cpp).
+# Metal GPU acceleration is added for macOS via a target section at the bottom.
 whisper-rs = "0.14"
 
 # Audio capture
@@ -66,3 +67,8 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# Metal GPU acceleration for whisper.cpp on Apple Silicon. Merged with the base
+# whisper-rs dependency above; on Intel macOS whisper.cpp falls back to CPU.
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.14", features = ["metal"] }
