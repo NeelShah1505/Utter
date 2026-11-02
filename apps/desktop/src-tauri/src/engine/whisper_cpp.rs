@@ -34,21 +34,47 @@ pub fn default_model_path() -> Option<PathBuf> {
 }
 
 fn resolve_model_path(configured: &str) -> Result<PathBuf, EngineError> {
-    let path = if !configured.is_empty() {
-        PathBuf::from(configured)
-    } else {
-        default_model_path().ok_or_else(|| {
-            EngineError::ModelNotFound("could not locate the models folder".into())
-        })?
-    };
-    if path.exists() {
-        Ok(path)
-    } else {
-        Err(EngineError::ModelNotFound(format!(
-            "No speech model at {}. Download a Whisper model in Settings, or switch the engine to Apple.",
-            path.display()
-        )))
+    // Explicit path wins.
+    if !configured.is_empty() {
+        let p = PathBuf::from(configured);
+        return if p.exists() {
+            Ok(p)
+        } else {
+            Err(EngineError::ModelNotFound(format!(
+                "No speech model at {}. Download a Whisper model in Settings, or switch the engine to Apple.",
+                p.display()
+            )))
+        };
     }
+
+    // No explicit path: prefer base.en, else use any installed ggml-*.bin so a
+    // user who only has small/large is not told to download.
+    if let Some(base) = default_model_path() {
+        if base.exists() {
+            return Ok(base);
+        }
+        if let Some(dir) = base.parent() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                let mut found: Vec<PathBuf> = entries
+                    .flatten()
+                    .map(|e| e.path())
+                    .filter(|p| {
+                        p.file_name()
+                            .and_then(|n| n.to_str())
+                            .map(|n| n.starts_with("ggml-") && n.ends_with(".bin"))
+                            .unwrap_or(false)
+                    })
+                    .collect();
+                found.sort();
+                if let Some(first) = found.into_iter().next() {
+                    return Ok(first);
+                }
+            }
+        }
+    }
+    Err(EngineError::ModelNotFound(
+        "No Whisper model installed. Download one in Settings → Transcription engine, or switch to Apple on-device.".into(),
+    ))
 }
 
 /// Linear-interpolation resample to 16 kHz mono. Good enough for speech; a

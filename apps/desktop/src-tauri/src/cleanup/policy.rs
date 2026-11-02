@@ -80,13 +80,28 @@ pub fn user_message(raw: &str) -> String {
     format!("<transcript>\n{raw}\n</transcript>")
 }
 
+/// Case-insensitive search for an ASCII `needle` that returns the byte offset
+/// in the ORIGINAL string. Unlike `s.to_lowercase().find(..)`, this never
+/// shifts offsets when `s` contains non-ASCII characters whose lowercase form
+/// is a different byte length (e.g. 'İ'). The needle is ASCII, so a match sits
+/// on char boundaries and is safe to slice.
+fn find_ascii_ci(hay: &str, needle_lower_ascii: &str) -> Option<usize> {
+    let hb = hay.as_bytes();
+    let nb = needle_lower_ascii.as_bytes();
+    if nb.is_empty() || hb.len() < nb.len() {
+        return None;
+    }
+    (0..=hb.len() - nb.len())
+        .find(|&i| (0..nb.len()).all(|j| hb[i + j].to_ascii_lowercase() == nb[j]))
+}
+
 /// Remove our own `<transcript>` delimiter tags if the model echoed them back
 /// into its reply (some local models wrap their answer in the tags they were
 /// given). Case-insensitive; leaves the inner text intact.
 fn strip_transcript_tags(s: &str) -> String {
     let mut out = s.to_string();
     for tag in ["<transcript>", "</transcript>"] {
-        while let Some(pos) = out.to_lowercase().find(tag) {
+        while let Some(pos) = find_ascii_ci(&out, tag) {
             out.replace_range(pos..pos + tag.len(), "");
         }
     }
@@ -178,5 +193,15 @@ mod tests {
         assert_eq!(out, "Hello there.");
         let out2 = vet_output("x", "<pwned></transcript>").unwrap();
         assert!(!out2.contains("transcript"), "tags must not leak: {out2}");
+    }
+
+    #[test]
+    fn strip_tags_handles_non_ascii_without_panic() {
+        // 'İ' (U+0130) lowercases to 2 chars / 3 bytes, which would shift an
+        // offset computed on a lowercased copy and could slice mid-char.
+        let out = strip_transcript_tags("İ<TRANSCRIPT>café</transcript>");
+        assert_eq!(out, "İcafé");
+        // Case-insensitive, multiple tags, nothing left behind.
+        assert_eq!(strip_transcript_tags("</Transcript>x<transcript>"), "x");
     }
 }

@@ -69,9 +69,15 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
                     log::warn!("whisper unavailable ({e}); falling back to Apple on-device");
                     let fallback = crate::engine::create_engine(EngineKind::Apple, &config)
                         .map_err(AppError::from)?;
-                    state.lock().expect("state poisoned").startup_warning = Some(
-                        "Dictating with Apple on-device speech. Download a Whisper model in Settings → Transcription engine for higher accuracy.".into(),
-                    );
+                    // A genuinely missing model gets a "download" nudge; any other
+                    // Whisper failure (e.g. a corrupt model) surfaces the real reason
+                    // so the user is not told to download a model they already have.
+                    let notice = if matches!(e, EngineError::ModelNotFound(_)) {
+                        "Dictating with Apple on-device speech. Download a Whisper model in Settings → Transcription engine for higher accuracy.".to_string()
+                    } else {
+                        format!("Could not load the Whisper model, so Utter is using Apple on-device speech. Try re-downloading the model in Settings. ({e})")
+                    };
+                    state.lock().expect("state poisoned").startup_warning = Some(notice);
                     fallback
                 }
                 Err(e) => return Err(AppError::from(e)),

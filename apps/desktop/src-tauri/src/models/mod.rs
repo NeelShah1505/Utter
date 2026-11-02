@@ -7,7 +7,8 @@
 use crate::error::{AppError, Result};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,43 +22,52 @@ pub struct ModelCatalogEntry {
     pub installed: bool,
     /// Absolute path where this model lives once installed.
     pub path: String,
+    /// Expected SHA-256 of the model file (verified after download).
+    pub sha256: String,
+}
+
+struct RawEntry {
+    id: &'static str,
+    label: &'static str,
+    file: &'static str,
+    url: &'static str,
+    approx_mb: u32,
+    note: &'static str,
+    sha256: &'static str,
 }
 
 /// The models Utter offers to download. base.en is the sensible default;
 /// large-v3-turbo is the accuracy option for users who want the best.
-fn catalog_raw() -> Vec<(
-    &'static str,
-    &'static str,
-    &'static str,
-    &'static str,
-    u32,
-    &'static str,
-)> {
+/// SHA-256 values are the canonical ggerganov/whisper.cpp ggml files.
+fn catalog_raw() -> Vec<RawEntry> {
     vec![
-        (
-            "base.en",
-            "Base (English) — recommended",
-            "ggml-base.en.bin",
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
-            142,
-            "Fast, good accuracy, English only. Best default.",
-        ),
-        (
-            "small.en",
-            "Small (English) — more accurate",
-            "ggml-small.en.bin",
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
-            466,
-            "Higher accuracy, a little slower. English only.",
-        ),
-        (
-            "large-v3-turbo",
-            "Large v3 Turbo — multilingual, slow",
-            "ggml-large-v3-turbo.bin",
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
-            1624,
-            "Multilingual and strong on hard audio, but much slower than realtime on most Macs — expect a wait after you stop speaking. Only pick this if Small is not accurate enough.",
-        ),
+        RawEntry {
+            id: "base.en",
+            label: "Base (English) — recommended",
+            file: "ggml-base.en.bin",
+            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+            approx_mb: 142,
+            note: "Fast, good accuracy, English only. Best default.",
+            sha256: "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
+        },
+        RawEntry {
+            id: "small.en",
+            label: "Small (English) — more accurate",
+            file: "ggml-small.en.bin",
+            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
+            approx_mb: 466,
+            note: "Higher accuracy, a little slower. English only.",
+            sha256: "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d",
+        },
+        RawEntry {
+            id: "large-v3-turbo",
+            label: "Large v3 Turbo — multilingual, slow",
+            file: "ggml-large-v3-turbo.bin",
+            url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
+            approx_mb: 1624,
+            note: "Multilingual and strong on hard audio, but much slower than realtime on most Macs — expect a wait after you stop speaking. Only pick this if Small is not accurate enough.",
+            sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+        },
     ]
 }
 
@@ -73,24 +83,27 @@ pub fn catalog() -> Result<Vec<ModelCatalogEntry>> {
     let dir = models_dir()?;
     Ok(catalog_raw()
         .into_iter()
-        .map(|(id, label, file, url, mb, note)| {
-            let path = dir.join(file);
+        .map(|r| {
+            let path = dir.join(r.file);
             ModelCatalogEntry {
-                id: id.into(),
-                label: label.into(),
-                file: file.into(),
-                url: url.into(),
-                approx_mb: mb,
-                note: note.into(),
+                id: r.id.into(),
+                label: r.label.into(),
+                file: r.file.into(),
+                url: r.url.into(),
+                approx_mb: r.approx_mb,
+                note: r.note.into(),
                 installed: path.exists(),
                 path: path.to_string_lossy().into_owned(),
+                sha256: r.sha256.into(),
             }
         })
         .collect())
 }
 
-/// Download a model by catalog id, streaming to `<file>.part` then renaming.
-/// Emits `model_download_progress` events: { id, received, total, pct }.
+/// Download a model by catalog id, streaming to `<file>.part`, verifying its
+/// SHA-256, then renaming into place. Emits `model_download_progress` events.
+/// On any failure the partial `.part` file is removed so it cannot be mistaken
+/// for a usable model.
 pub async fn download(app: &AppHandle, id: &str) -> Result<String> {
     let entry = catalog()?
         .into_iter()
@@ -103,6 +116,23 @@ pub async fn download(app: &AppHandle, id: &str) -> Result<String> {
         return Ok(final_path.to_string_lossy().into_owned());
     }
     let part_path = dir.join(format!("{}.part", entry.file));
+
+    match download_inner(app, &entry, &part_path, &final_path).await {
+        Ok(p) => Ok(p),
+        Err(e) => {
+            let _ = std::fs::remove_file(&part_path);
+            Err(e)
+        }
+    }
+}
+
+async fn download_inner(
+    app: &AppHandle,
+    entry: &ModelCatalogEntry,
+    part_path: &Path,
+    final_path: &Path,
+) -> Result<String> {
+    use std::io::Write;
 
     let client = reqwest::Client::builder()
         .build()
@@ -120,9 +150,9 @@ pub async fn download(app: &AppHandle, id: &str) -> Result<String> {
     }
     let total = resp.content_length().unwrap_or(0);
 
-    use std::io::Write;
     let mut file =
-        std::fs::File::create(&part_path).map_err(|e| AppError::Internal(e.to_string()))?;
+        std::fs::File::create(part_path).map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut hasher = Sha256::new();
     let mut received: u64 = 0;
     let mut last_pct = -1i64;
     let mut stream = resp.bytes_stream();
@@ -130,6 +160,7 @@ pub async fn download(app: &AppHandle, id: &str) -> Result<String> {
         let chunk = chunk.map_err(|e| AppError::Internal(format!("download stream error: {e}")))?;
         file.write_all(&chunk)
             .map_err(|e| AppError::Internal(e.to_string()))?;
+        hasher.update(&chunk);
         received += chunk.len() as u64;
         let pct = (received * 100)
             .checked_div(total)
@@ -139,7 +170,7 @@ pub async fn download(app: &AppHandle, id: &str) -> Result<String> {
             last_pct = pct;
             let _ = app.emit(
                 "model_download_progress",
-                serde_json::json!({ "id": id, "received": received, "total": total, "pct": pct }),
+                serde_json::json!({ "id": entry.id, "received": received, "total": total, "pct": pct }),
             );
         }
     }
@@ -149,8 +180,36 @@ pub async fn download(app: &AppHandle, id: &str) -> Result<String> {
         .map_err(|e| AppError::Internal(e.to_string()))?;
     drop(file);
 
-    std::fs::rename(&part_path, &final_path)
+    // Integrity: reject a truncated or substituted body before it is installed.
+    if total > 0 && received != total {
+        return Err(AppError::Internal(format!(
+            "model download was incomplete ({received} of {total} bytes)"
+        )));
+    }
+    let got = hex_lower(&hasher.finalize());
+    if !entry.sha256.is_empty() && got != entry.sha256 {
+        return Err(AppError::Internal(format!(
+            "downloaded model failed its checksum (expected {}, got {got}). Nothing was installed.",
+            entry.sha256
+        )));
+    }
+
+    std::fs::rename(part_path, final_path)
         .map_err(|e| AppError::Internal(format!("finalize model: {e}")))?;
-    log::info!("models: downloaded {} to {}", id, final_path.display());
+    log::info!(
+        "models: downloaded {} to {}",
+        entry.id,
+        final_path.display()
+    );
     Ok(final_path.to_string_lossy().into_owned())
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
 }
