@@ -52,11 +52,11 @@ fn catalog_raw() -> Vec<(
         ),
         (
             "large-v3-turbo",
-            "Large v3 Turbo — best accuracy",
+            "Large v3 Turbo — multilingual, slow",
             "ggml-large-v3-turbo.bin",
             "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
             1624,
-            "Best accuracy and multilingual. Large download.",
+            "Multilingual and strong on hard audio, but much slower than realtime on most Macs — expect a wait after you stop speaking. Only pick this if Small is not accurate enough.",
         ),
     ]
 }

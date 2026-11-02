@@ -74,6 +74,8 @@ impl AsrEngine for WhisperCppEngine {
     fn init(config: &EngineConfig) -> Result<Self, EngineError> {
         // Route whisper.cpp's chatty stderr through the `log` crate once, so it
         // obeys our log level instead of spamming the terminal / crash log.
+        // (CPU backend: on this hardware it beat Metal for the small default
+        // model — Metal's per-call GPU overhead dominated base.en's latency.)
         static LOG_HOOK: std::sync::Once = std::sync::Once::new();
         LOG_HOOK.call_once(whisper_rs::install_logging_hooks);
 
