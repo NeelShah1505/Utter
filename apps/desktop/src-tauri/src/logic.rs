@@ -13,7 +13,10 @@ pub struct EditPlan {
 /// Longest common char prefix, then backspaces for the rest of `old`.
 pub fn plan_edit(old: &str, new: &str) -> EditPlan {
     if old == new {
-        return EditPlan { backspaces: 0, suffix: String::new() };
+        return EditPlan {
+            backspaces: 0,
+            suffix: String::new(),
+        };
     }
 
     let mut prefix = 0;
@@ -46,7 +49,7 @@ pub fn sanitize_insertion(text: &str) -> String {
         if c == '\u{1b}' {
             if chars.peek() == Some(&'[') {
                 chars.next();
-                while let Some(n) = chars.next() {
+                for n in chars.by_ref() {
                     if n.is_ascii_alphabetic() {
                         break;
                     }
@@ -87,7 +90,10 @@ pub fn apply_dictionary(text: &str, rules: &[(String, String)]) -> String {
                 i += 1;
             }
             let word: String = chars[start..i].iter().collect();
-            if let Some((_, repl)) = rules.iter().find(|(from, _)| from.eq_ignore_ascii_case(&word)) {
+            if let Some((_, repl)) = rules
+                .iter()
+                .find(|(from, _)| from.eq_ignore_ascii_case(&word))
+            {
                 out.push_str(repl);
             } else {
                 out.push_str(&word);
@@ -227,10 +233,19 @@ mod tests {
 
     #[test]
     fn classify_known_apps() {
-        assert_eq!(classify_app("com.todesktop.230313mzl4w4u92", "Cursor"), AppKind::Code);
-        assert_eq!(classify_app("com.tinyspeck.slackmacgap", "Slack"), AppKind::Chat);
+        assert_eq!(
+            classify_app("com.todesktop.230313mzl4w4u92", "Cursor"),
+            AppKind::Code
+        );
+        assert_eq!(
+            classify_app("com.tinyspeck.slackmacgap", "Slack"),
+            AppKind::Chat
+        );
         assert_eq!(classify_app("com.apple.mail", "Mail"), AppKind::Email);
         assert_eq!(classify_app("com.apple.Notes", "Notes"), AppKind::Pro);
-        assert_eq!(classify_app("com.apple.Terminal", "Terminal"), AppKind::Code);
+        assert_eq!(
+            classify_app("com.apple.Terminal", "Terminal"),
+            AppKind::Code
+        );
     }
 }

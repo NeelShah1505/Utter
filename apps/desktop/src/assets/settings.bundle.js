@@ -528,6 +528,15 @@
         } catch (e) {
           console.warn("list_models failed:", e);
         }
+        try {
+          const engine = currentSettings.engine === "whisper" ? "whisper" : "apple";
+          const sr = document.querySelector(`input[name="speech-engine"][value="${engine}"]`);
+          if (sr) sr.checked = true;
+          await renderWhisperModels();
+          updateWhisperCardVisibility();
+        } catch (e) {
+          console.warn("speech engine UI failed:", e);
+        }
         const cleanup = currentSettings.cleanup ?? { type: "None" };
         const engineType = cleanup.type ?? "None";
         const radio = document.querySelector(`input[name="engine-type"][value="${engineType}"]`);
@@ -552,6 +561,108 @@
         renderDictionary();
         updateHistoryUI();
       }
+      function currentSpeechEngine() {
+        return document.querySelector('input[name="speech-engine"]:checked')?.value || "apple";
+      }
+      function updateWhisperCardVisibility() {
+        const card = document.getElementById("whisper-models-card");
+        if (card) card.hidden = currentSpeechEngine() !== "whisper";
+      }
+      function setModelPath(path) {
+        if (!modelSelect) return;
+        let opt = Array.from(modelSelect.options).find((o) => o.value === path);
+        if (!opt) {
+          opt = document.createElement("option");
+          opt.value = path;
+          modelSelect.appendChild(opt);
+        }
+        modelSelect.value = path;
+      }
+      async function renderWhisperModels() {
+        const list = document.getElementById("whisper-models-list");
+        if (!list) return;
+        let catalog = [];
+        try {
+          catalog = await invoke("list_model_catalog");
+        } catch (e) {
+          list.textContent = "Could not load the model list.";
+          console.warn(e);
+          return;
+        }
+        const chosen = currentSettings.model_path || "";
+        list.innerHTML = "";
+        catalog.forEach((m) => {
+          const row = document.createElement("div");
+          row.className = "whisper-model-row";
+          const isChosen = chosen ? chosen === m.path : m.id === "base.en";
+          const info = document.createElement("div");
+          info.className = "whisper-model-info";
+          const strong = document.createElement("strong");
+          strong.textContent = m.label;
+          const span = document.createElement("span");
+          span.textContent = `${m.note} \xB7 ~${m.approx_mb} MB`;
+          info.appendChild(strong);
+          info.appendChild(span);
+          row.appendChild(info);
+          const ctl = document.createElement("div");
+          ctl.className = "whisper-model-ctl";
+          if (m.installed) {
+            const lbl = document.createElement("label");
+            const r = document.createElement("input");
+            r.type = "radio";
+            r.name = "whisper-model";
+            r.value = m.path;
+            r.checked = isChosen;
+            if (r.checked) setModelPath(m.path);
+            r.addEventListener("change", () => {
+              setModelPath(m.path);
+              saveSettingsSilently();
+            });
+            lbl.appendChild(r);
+            lbl.appendChild(document.createTextNode(" Use"));
+            ctl.appendChild(lbl);
+          } else {
+            const btn = document.createElement("button");
+            btn.className = "btn-secondary";
+            btn.textContent = `Download (${m.approx_mb} MB)`;
+            btn.addEventListener("click", () => downloadWhisperModel(m, btn));
+            ctl.appendChild(btn);
+            const prog = document.createElement("span");
+            prog.className = "whisper-model-prog";
+            prog.id = `wprog-${m.id}`;
+            ctl.appendChild(prog);
+          }
+          row.appendChild(ctl);
+          list.appendChild(row);
+        });
+      }
+      async function downloadWhisperModel(m, btn) {
+        btn.disabled = true;
+        const prog = document.getElementById(`wprog-${m.id}`);
+        if (prog) prog.textContent = " Starting\u2026";
+        try {
+          await invoke("download_model", { id: m.id });
+          setModelPath(m.path);
+          await renderWhisperModels();
+          await saveSettingsSilently();
+        } catch (e) {
+          if (prog) prog.textContent = " Failed";
+          btn.disabled = false;
+          console.error("download_model failed:", e);
+        }
+      }
+      listen("model_download_progress", (event) => {
+        const p = event.payload;
+        if (!p || !p.id) return;
+        const prog = document.getElementById(`wprog-${p.id}`);
+        if (prog) prog.textContent = p.pct >= 0 ? ` ${p.pct}%` : " \u2026";
+      });
+      document.querySelectorAll('input[name="speech-engine"]').forEach((r) => {
+        r.addEventListener("change", () => {
+          updateWhisperCardVisibility();
+          saveSettingsSilently();
+        });
+      });
       function buildSettingsObject() {
         const selectedEngine = document.querySelector('input[name="engine-type"]:checked')?.value || "None";
         let cleanup;
@@ -575,9 +686,11 @@
         }
         const liveEl = document.getElementById("toggle-live-typing");
         const routeEl = document.getElementById("toggle-smart-routing");
+        const speechEngine = document.querySelector('input[name="speech-engine"]:checked')?.value || "apple";
         return {
           hotkey: hotkeyInput.value.trim() || "CmdOrCtrl+Shift+D",
-          model_path: modelSelect.value || "",
+          engine: speechEngine,
+          model_path: speechEngine === "whisper" ? modelSelect.value || "" : "",
           audio_device: audioSelect.value === "System Default Microphone" ? "" : audioSelect.value,
           cleanup,
           dictionary: currentSettings.dictionary || [],

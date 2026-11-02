@@ -25,6 +25,7 @@ mod hotkey;
 mod insert;
 mod logic;
 mod mic;
+mod models;
 mod persist;
 mod settings;
 mod state;
@@ -51,7 +52,9 @@ fn install_panic_hook() {
     let path = crash_log_path();
     std::panic::set_hook(Box::new(move |info| {
         let msg = format!("{info}\n");
-        eprintln!("Utter crashed. A local note was saved. Nothing was sent over the network.\n{msg}");
+        eprintln!(
+            "Utter crashed. A local note was saved. Nothing was sent over the network.\n{msg}"
+        );
         if let Some(path) = &path {
             let _ = std::fs::OpenOptions::new()
                 .create(true)
@@ -74,10 +77,8 @@ fn main() {
     #[cfg(not(debug_assertions))]
     let default_level = "utter=info,warn";
 
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or(default_level),
-    )
-    .init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(default_level))
+        .init();
 
     log::info!("Utter v{} starting", env!("CARGO_PKG_VERSION"));
 
@@ -107,6 +108,8 @@ fn main() {
             commands::delete_keychain_secret,
             commands::list_audio_devices,
             commands::list_models,
+            commands::list_model_catalog,
+            commands::download_model,
             commands::test_cleanup,
             commands::get_logs,
             commands::get_startup_warning,

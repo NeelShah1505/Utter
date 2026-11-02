@@ -266,3 +266,16 @@ body.state-error        .status-label { color: var(--error); }
 .bubble__error button:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Respect the system "Reduce motion" setting: keep state visible, drop the
+   spinning/pulsing. Transitions collapse to near-instant rather than off so
+   focus and hover still read. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

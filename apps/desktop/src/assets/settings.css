@@ -2233,3 +2233,67 @@ body {
   line-height: 1.4;
 }
 
+/* Transcription engine picker + Whisper model rows */
+.engine-choice {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.engine-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.whisper-models {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.whisper-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.whisper-model-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.whisper-model-info span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.whisper-model-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.whisper-model-prog {
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 3ch;
+}
+
+/* Respect the system "Reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
