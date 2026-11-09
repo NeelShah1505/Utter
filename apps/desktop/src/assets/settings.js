@@ -613,6 +613,77 @@ document.querySelectorAll('input[name="speech-engine"]').forEach(r => {
 });
 
 // ---------------------------------------------------------------------------
+// Fetch the models a provider actually offers (Ollama /api/tags or /v1/models)
+// ---------------------------------------------------------------------------
+
+const cleanupModelsBtn  = document.getElementById('cleanup-models-btn');
+const cleanupModelsList = document.getElementById('cleanup-models-list');
+const cleanupModelsData = document.getElementById('cleanup-models');
+
+function activeModelInput() {
+  const t = document.querySelector('input[name="engine-type"]:checked')?.value;
+  if (t === 'LocalOllama') return ollamaLocalModel;
+  if (t === 'OpenAiCompat') return oaiModel;
+  return null;
+}
+
+if (cleanupModelsBtn) {
+  cleanupModelsBtn.addEventListener('click', async () => {
+    const updated = buildSettingsObject();
+    if (!updated.cleanup || updated.cleanup.type === 'None') {
+      cleanupModelsList.textContent = 'Pick Local Ollama or Cloud AI first, then fetch models.';
+      return;
+    }
+    cleanupModelsBtn.disabled = true;
+    cleanupModelsList.textContent = 'Asking the endpoint which models it can serve…';
+    try {
+      // A key typed but not yet saved must reach the Keychain before we ask.
+      if (updated.cleanup.type === 'OpenAiCompat' && oaiKey && oaiKey.value.trim()) {
+        await invoke('set_keychain_secret', {
+          account: updated.cleanup.keychain_account,
+          secret: oaiKey.value.trim(),
+        });
+      }
+      const models = await invoke('list_cleanup_models', { settings: updated });
+      cleanupModelsData.innerHTML = '';
+      models.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m;
+        cleanupModelsData.appendChild(o);
+      });
+      cleanupModelsList.innerHTML = '';
+      if (!models.length) {
+        cleanupModelsList.textContent = 'That endpoint reported no usable chat models.';
+      } else {
+        const intro = document.createElement('span');
+        intro.textContent = `${models.length} model${models.length === 1 ? '' : 's'} available — click one to use it: `;
+        cleanupModelsList.appendChild(intro);
+        models.forEach(m => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'btn-preset';
+          chip.textContent = m;
+          chip.addEventListener('click', () => {
+            const input = activeModelInput();
+            if (input) {
+              input.value = m;
+              saveSettingsSilently();
+              cleanupModelsList.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+              chip.classList.add('active');
+            }
+          });
+          cleanupModelsList.appendChild(chip);
+        });
+      }
+    } catch (e) {
+      cleanupModelsList.textContent = `Could not list models: ${e}`;
+    } finally {
+      cleanupModelsBtn.disabled = false;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // 6. Save & Test AI Connection
 // ---------------------------------------------------------------------------
 

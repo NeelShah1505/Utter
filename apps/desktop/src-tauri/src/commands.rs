@@ -603,6 +603,15 @@ pub fn list_models() -> Vec<ModelInfo> {
         .collect()
 }
 
+/// Ask the configured cleanup provider which models it can serve, so the UI can
+/// offer the real list instead of a free-text guess.
+#[tauri::command]
+pub async fn list_cleanup_models(settings: Settings) -> Result<Vec<String>> {
+    cleanup::list_models_for(&settings.cleanup)
+        .await
+        .map_err(AppError::from)
+}
+
 /// The downloadable Whisper model catalog, with an `installed` flag per entry.
 #[tauri::command]
 pub fn list_model_catalog() -> Result<Vec<crate::models::ModelCatalogEntry>> {

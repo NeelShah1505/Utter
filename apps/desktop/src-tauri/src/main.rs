@@ -111,6 +111,7 @@ fn main() {
             commands::list_model_catalog,
             commands::download_model,
             commands::test_cleanup,
+            commands::list_cleanup_models,
             commands::get_logs,
             commands::get_startup_warning,
             commands::diagnostics_report,

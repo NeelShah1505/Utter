@@ -448,7 +448,7 @@
             </div>
             <div class="field-item">
               <label for="ollama-local-model">Model Name</label>
-              <input type="text" id="ollama-local-model" placeholder="e.g. llama3, mistral, deepseek-r1, qwen2.5" value="llama3">
+              <input type="text" id="ollama-local-model" list="cleanup-models" placeholder="e.g. llama3.1:8b, mistral, qwen2.5" value="llama3.1:8b">
             </div>
           </div>
         </div>
@@ -474,7 +474,7 @@
             </div>
             <div class="field-item">
               <label for="oai-model">Model Identifier</label>
-              <input type="text" id="oai-model" placeholder="e.g. gpt-4o-mini or llama-3.3-70b-versatile">
+              <input type="text" id="oai-model" list="cleanup-models" placeholder="e.g. gpt-4o-mini or llama-3.3-70b-versatile">
             </div>
             <div class="field-item full-width">
               <label for="oai-key">Personal API Key</label>
@@ -501,11 +501,17 @@
           </div>
         </div>
 
+        <!-- Real models offered by whatever endpoint/key is configured. Both
+             model inputs above use this list, and stay free-text. -->
+        <datalist id="cleanup-models"></datalist>
+
         <!-- Connection Tester -->
         <div class="test-action-bar" id="test-bar">
-          <button type="button" id="cleanup-test-btn" class="btn-test"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: middle; margin-right: 6px;"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> Test AI Connection & Latency</button>
+          <button type="button" id="cleanup-test-btn" class="btn-test"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: middle; margin-right: 6px;"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> Test AI Connection &amp; Latency</button>
+          <button type="button" id="cleanup-models-btn" class="btn-test"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: middle; margin-right: 6px;"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Fetch available models</button>
           <span id="cleanup-test-result" class="test-result-msg"></span>
         </div>
+        <div id="cleanup-models-list" class="test-result-msg" style="margin-top:8px;"></div>
       </section>
 
       <!-- GENERAL SETTINGS TAB -->

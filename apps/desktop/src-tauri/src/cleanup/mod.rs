@@ -13,6 +13,7 @@
 // We use an async fn in a trait, which requires the `async-trait` pattern
 // (in Rust 2024 edition, async fns in traits are stable).
 
+pub mod discover;
 pub mod noop;
 pub mod ollama;
 pub mod openai_compat;
@@ -104,6 +105,33 @@ pub fn build_backend(config: &CleanupConfig) -> Box<dyn CleanupBackend> {
     }
 }
 
+/// Ask the configured provider which models it can serve. The key (if any) is
+/// read from the keychain, exactly as `build_backend` does.
+pub async fn list_models_for(config: &CleanupConfig) -> Result<Vec<String>, CleanupError> {
+    match config {
+        CleanupConfig::None => Err(CleanupError::Request(
+            "Pick Local Ollama or a Cloud AI endpoint first, then fetch models.".into(),
+        )),
+        CleanupConfig::LocalOllama { url, .. } => discover::list_models(url, None).await,
+        CleanupConfig::RemoteOllama {
+            url,
+            keychain_account,
+            ..
+        } => {
+            let token = load_keychain_secret(keychain_account);
+            discover::list_models(url, token.as_deref()).await
+        }
+        CleanupConfig::OpenAiCompat {
+            url,
+            keychain_account,
+            ..
+        } => {
+            let key = load_keychain_secret(keychain_account);
+            discover::list_models(url, key.as_deref()).await
+        }
+    }
+}
+
 /// Read a secret from the OS keychain.
 /// Service name: "com.utter.app" (matches MEMORY.md §2.5).
 /// Returns None if no secret is stored for the account.
@@ -185,6 +213,37 @@ mod live_tests {
                 }
                 Err(e) => eprintln!("[{name}] ERROR: {e}\n"),
             }
+        }
+    }
+
+    /// List what the local Ollama can serve, through the real discovery path.
+    #[tokio::test]
+    #[ignore]
+    async fn ollama_lists_models() {
+        match discover::list_models("http://localhost:11434", None).await {
+            Ok(models) => {
+                eprintln!("OLLAMA_MODELS: {models:?}");
+                assert!(!models.is_empty());
+            }
+            Err(e) => eprintln!("OLLAMA_MODELS ERROR: {e}"),
+        }
+    }
+
+    /// List what a cloud OpenAI-compatible endpoint can serve.
+    /// UTTER_OPENAI_BASE=... UTTER_OPENAI_KEY=... cargo test --bin utter -- --ignored --nocapture cloud_lists_models
+    #[tokio::test]
+    #[ignore]
+    async fn cloud_lists_models() {
+        let (Ok(base), Ok(key)) = (
+            std::env::var("UTTER_OPENAI_BASE"),
+            std::env::var("UTTER_OPENAI_KEY"),
+        ) else {
+            eprintln!("cloud_lists_models: set UTTER_OPENAI_BASE and UTTER_OPENAI_KEY to run");
+            return;
+        };
+        match discover::list_models(&base, Some(&key)).await {
+            Ok(models) => eprintln!("CLOUD_MODELS ({}): {models:?}", models.len()),
+            Err(e) => eprintln!("CLOUD_MODELS ERROR: {e}"),
         }
     }
 
