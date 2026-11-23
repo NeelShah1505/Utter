@@ -364,10 +364,11 @@ function initWave() {
 
   const frame = () => {
     ctx.clearRect(0, 0, w, h);
-    const a = h * 0.17;
-    layer(t,         a,        0.85, '#ffb155');
-    layer(t * 0.8 + 1.4, a * 0.8, 0.5,  '#ff7a45');
-    layer(t * 1.2 + 3.1, a * 0.6, 0.42, '#5eead4');
+    // Monochrome, with the app's recording red as the only chroma.
+    const a = h * 0.19;
+    layer(t,             a,        0.92, '#0a0a0a');
+    layer(t * 0.8 + 1.4, a * 0.78, 0.30, '#6b7280');
+    layer(t * 1.2 + 3.1, a * 0.55, 0.80, '#ff3b30');
     t += 0.016;
     raf = requestAnimationFrame(frame);
   };
@@ -378,9 +379,9 @@ function initWave() {
   if (!wantsMotion()) {
     // Draw one static frame so the hero is not empty.
     ctx.clearRect(0, 0, w, h);
-    const a = h * 0.17;
-    layer(0.8, a, 0.8, '#ffb155');
-    layer(2.2, a * 0.7, 0.45, '#5eead4');
+    const a = h * 0.19;
+    layer(0.8, a, 0.9, '#0a0a0a');
+    layer(2.2, a * 0.55, 0.8, '#ff3b30');
     return;
   }
 

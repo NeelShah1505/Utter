@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Utter — Type with your voice. On your Mac.</title>
 <meta name="description" content="Utter is a free, open-source voice dictation app for macOS. Press a hotkey, speak, and your words are typed into whatever app you are in. Transcribed on your machine — no account, no API key, no telemetry. MIT licensed.">
-<meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#07090C">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F7F7F5">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Utter — Type with your voice. On your Mac.">
@@ -15,14 +15,12 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
 
-<!-- Film grain. Pure SVG noise, no image request. -->
-<div class="grain" aria-hidden="true"></div>
-<!-- Soft light that trails the pointer. Disabled for touch + reduced motion. -->
+<div class="grid-lines" aria-hidden="true"></div>
 <div class="cursor-glow" id="cursor-glow" aria-hidden="true"></div>
 
 <a class="skip-link" href="#download">Skip to download</a>
@@ -30,105 +28,107 @@
 <header class="site-header" id="site-header">
   <a class="wordmark" href="#top" aria-label="Utter, back to top">
     <span class="wordmark__mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
         <path d="M12 2v20M6 7v10M18 7v10M2 11v2M22 11v2"></path>
       </svg>
     </span>
-    <span class="wordmark__text">Utter</span>
+    <span class="wordmark__text">UTTER</span>
   </a>
   <nav class="site-nav" aria-label="Sections">
-    <a href="#how"><span class="num">01</span> How</a>
-    <a href="#why"><span class="num">02</span> Why</a>
-    <a href="#cleanup"><span class="num">03</span> Cleanup</a>
-    <a href="#download"><span class="num">04</span> Get it</a>
+    <a href="#how"><span class="num">01</span>How</a>
+    <a href="#why"><span class="num">02</span>Why</a>
+    <a href="#cleanup"><span class="num">03</span>Cleanup</a>
+    <a href="#download"><span class="num">04</span>Get</a>
   </nav>
   <a class="gh-link" href="https://github.com/NeelShah1505/Utter" rel="noopener">
-    <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-2.65-.89-2.65-2.72 0-.78.28-1.44.74-1.95-.07-.18-.32-.92.07-1.91 0 0 .6-.19 1.97.75a6.65 6.65 0 0 1 1.79-.24c.61 0 1.22.08 1.79.24 1.37-.94 1.97-.75 1.97-.75.39.99.14 1.73.07 1.91.46.51.74 1.17.74 1.95 0 1.84-.88 2.52-2.66 2.72.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A7.995 7.995 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-    <span>Source</span>
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-2.65-.89-2.65-2.72 0-.78.28-1.44.74-1.95-.07-.18-.32-.92.07-1.91 0 0 .6-.19 1.97.75a6.65 6.65 0 0 1 1.79-.24c.61 0 1.22.08 1.79.24 1.37-.94 1.97-.75 1.97-.75.39.99.14 1.73.07 1.91.46.51.74 1.17.74 1.95 0 1.84-.88 2.52-2.66 2.72.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A7.995 7.995 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    <span>SOURCE</span>
   </a>
 </header>
 
 <main id="top">
 
-  <!-- ══════════════════════════ HERO ══════════════════════════ -->
+  <!-- ═════════════════════ HERO ═════════════════════ -->
   <section class="hero" id="hero">
     <div class="hero__stage" data-tilt-scene>
+      <div class="hero__meta">
+        <span class="rec"><i aria-hidden="true"></i>REC</span>
+        <span class="hero__meta-item">MIT LICENSE</span>
+        <span class="hero__meta-item">ON&#8209;DEVICE</span>
+        <span class="hero__meta-item">v0.1.0</span>
+      </div>
+
+      <h1 class="hero__title">
+        <span class="line" data-reveal>TYPE WITH</span>
+        <span class="line line--rule" data-reveal>YOUR <span class="voice">VOICE<span class="voice__cursor" aria-hidden="true"></span></span></span>
+      </h1>
+
       <canvas class="hero__wave" id="wave" aria-hidden="true"></canvas>
 
-      <div class="hero__inner">
-        <p class="eyebrow">
-          <span class="dot" aria-hidden="true"></span>
-          Free &amp; open source · MIT
-        </p>
-
-        <h1 class="hero__title">
-          <span class="line" data-reveal>Type with</span>
-          <span class="line" data-reveal>your <em>voice.</em></span>
-        </h1>
-
+      <div class="hero__grid">
         <p class="hero__sub" data-reveal>
-          Press a hotkey. Say the sentence. Utter types it into whatever app you're
-          already in — transcribed <strong>on your own Mac</strong>. No account,
-          no API key, no telemetry.
+          Press a hotkey. Say the sentence. Utter types it into whatever app
+          you're already in — transcribed <strong>on your own Mac</strong>.
+          No account. No API key. No telemetry.
         </p>
-
         <div class="hero__cta" data-reveal>
           <a class="btn btn--primary" id="download-btn" href="https://github.com/NeelShah1505/Utter/releases/latest" data-magnetic>
-            <span class="btn__label">Download for macOS</span>
-            <span class="btn__shine" aria-hidden="true"></span>
+            <span class="btn__label">DOWNLOAD FOR MACOS</span>
           </a>
-          <p class="download-meta" id="download-meta">Apple Silicon · macOS 13+</p>
+          <p class="download-meta" id="download-meta">APPLE SILICON · MACOS 13+</p>
         </div>
-
-        <p class="hero__note" data-reveal>
-          Built for Apple Silicon. <a href="#download">Windows and Intel Mac status →</a>
-        </p>
       </div>
     </div>
 
-    <div class="scroll-cue" aria-hidden="true">
-      <span>Scroll</span>
-      <i></i>
-    </div>
+    <div class="scroll-cue" aria-hidden="true"><span>SCROLL</span><i></i></div>
   </section>
 
-  <!-- ══════════════════════ 01 · THE JOURNEY (3D scroll) ══════════════════════ -->
-  <section class="journey" id="how">
+  <!-- ═════════════════════ TICKER ═════════════════════ -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker__track">
+      <span>WHISPER.CPP LOCAL</span><b>/</b><span>NO TELEMETRY</span><b>/</b>
+      <span>WORKS OFFLINE</span><b>/</b><span>YOUR VOCABULARY</span><b>/</b>
+      <span>OPTIONAL AI CLEANUP</span><b>/</b><span>MIT LICENSED</span><b>/</b>
+      <span>WHISPER.CPP LOCAL</span><b>/</b><span>NO TELEMETRY</span><b>/</b>
+      <span>WORKS OFFLINE</span><b>/</b><span>YOUR VOCABULARY</span><b>/</b>
+      <span>OPTIONAL AI CLEANUP</span><b>/</b><span>MIT LICENSED</span><b>/</b>
+    </div>
+  </div>
+
+  <!-- ═════════════════════ 01 · JOURNEY (inverted) ═════════════════════ -->
+  <section class="journey invert" id="how">
     <div class="journey__head">
-      <p class="label"><span class="num">01</span> How it works</p>
-      <h2 class="h2">Three seconds,<br><em>start to typed.</em></h2>
+      <p class="label"><span class="num">[ 01 ]</span> HOW IT WORKS</p>
+      <h2 class="h2">THREE SECONDS,<br>START TO <span class="accent">TYPED</span>.</h2>
     </div>
 
-    <!-- Pinned 3D rail. Cards fly toward you as you scroll. -->
     <div class="rail" id="rail">
       <div class="rail__viewport">
         <div class="rail__depth" id="rail-depth">
 
           <article class="step" data-step="0">
-            <p class="step__num">01</p>
+            <p class="step__num">[ 01 ]</p>
             <div class="step__key"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>D</kbd></div>
-            <h3>Press the hotkey</h3>
+            <h3>PRESS THE HOTKEY</h3>
             <p>From any app. A small bubble appears and starts listening. Your
-              cursor never leaves the text field you were in.</p>
+              cursor never leaves the field you were already typing in.</p>
           </article>
 
           <article class="step" data-step="1">
-            <p class="step__num">02</p>
+            <p class="step__num">[ 02 ]</p>
             <div class="step__viz" aria-hidden="true">
               <span></span><span></span><span></span><span></span><span></span>
               <span></span><span></span><span></span><span></span><span></span>
             </div>
-            <h3>Say the sentence</h3>
+            <h3>SAY THE SENTENCE</h3>
             <p>Audio is processed by a Whisper model running locally on your
-              machine. Nothing is uploaded. It works with Wi‑Fi off.</p>
+              machine. Nothing is uploaded. It works with Wi&#8209;Fi off.</p>
           </article>
 
           <article class="step" data-step="2">
-            <p class="step__num">03</p>
-            <div class="step__type" aria-hidden="true">
-              <span class="caret"></span>
-            </div>
-            <h3>Your words land</h3>
+            <p class="step__num">[ 03 ]</p>
+            <div class="step__type" aria-hidden="true"></div>
+            <h3>YOUR WORDS LAND</h3>
             <p>Press the hotkey again. The finished text is typed straight into
               Notes, Slack, your editor, the browser — wherever you were.</p>
           </article>
@@ -138,12 +138,12 @@
     </div>
   </section>
 
-  <!-- ══════════════════════ 02 · WHY ══════════════════════ -->
+  <!-- ═════════════════════ 02 · WHY ═════════════════════ -->
   <section class="why" id="why">
     <div class="why__head">
-      <p class="label"><span class="num">02</span> Why it's different</p>
-      <h2 class="h2">Not a wrapper<br>around <em>dictation.</em></h2>
-      <p class="why__lede">
+      <p class="label"><span class="num">[ 02 ]</span> WHY IT'S DIFFERENT</p>
+      <h2 class="h2">NOT A WRAPPER AROUND<br><span class="accent">DICTATION</span>.</h2>
+      <p class="lede">
         macOS already has a dictation key. Utter exists because the useful part
         isn't hearing the words — it's what happens to them next.
       </p>
@@ -153,12 +153,10 @@
       <article class="card" data-tilt>
         <div class="card__glow" aria-hidden="true"></div>
         <div class="card__body">
-          <span class="card__ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          </span>
-          <h3>It runs on your machine</h3>
+          <p class="card__idx">01</p>
+          <h3>IT RUNS ON YOUR MACHINE</h3>
           <p>whisper.cpp, locally. The transcript is never sent anywhere unless
-            you deliberately turn on the optional cleanup pass. Airplane mode
+            you deliberately switch on the optional cleanup pass. Airplane mode
             changes nothing.</p>
         </div>
       </article>
@@ -166,25 +164,21 @@
       <article class="card" data-tilt>
         <div class="card__glow" aria-hidden="true"></div>
         <div class="card__body">
-          <span class="card__ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h10M4 17h7"></path></svg>
-          </span>
-          <h3>Your vocabulary, heard correctly</h3>
+          <p class="card__idx">02</p>
+          <h3>YOUR VOCABULARY, HEARD RIGHT</h3>
           <p>Add <code>useState</code>, <code>kubectl</code>, a colleague's name.
-            Utter feeds them to the recognizer as it decodes — so they come out
-            right the first time, not patched afterwards.</p>
+            Utter feeds them to the recognizer while it decodes — so they come
+            out correct the first time, not patched afterwards.</p>
         </div>
       </article>
 
       <article class="card" data-tilt>
         <div class="card__glow" aria-hidden="true"></div>
         <div class="card__body">
-          <span class="card__ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>
-          </span>
-          <h3>Optional AI cleanup</h3>
-          <p>Point it at a local Ollama or any OpenAI-compatible endpoint and it
-            removes filler, fixes grammar, and resolves the corrections you make
+          <p class="card__idx">03</p>
+          <h3>OPTIONAL AI CLEANUP</h3>
+          <p>Point it at a local Ollama or any OpenAI-compatible endpoint. It
+            strips filler, fixes grammar, and resolves corrections you make
             mid-sentence. Off by default.</p>
         </div>
       </article>
@@ -192,10 +186,8 @@
       <article class="card" data-tilt>
         <div class="card__glow" aria-hidden="true"></div>
         <div class="card__body">
-          <span class="card__ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-          </span>
-          <h3>Yours to read and change</h3>
+          <p class="card__idx">04</p>
+          <h3>YOURS TO READ AND CHANGE</h3>
           <p>MIT licensed, every line on GitHub. No sign-in wall, no usage cap,
             no "pro" tier holding the good part hostage.</p>
         </div>
@@ -203,51 +195,47 @@
     </div>
   </section>
 
-  <!-- ══════════════════════ 03 · CLEANUP DEMO ══════════════════════ -->
+  <!-- ═════════════════════ 03 · CLEANUP ═════════════════════ -->
   <section class="demo" id="cleanup">
     <div class="demo__head">
-      <p class="label"><span class="num">03</span> The part people notice</p>
-      <h2 class="h2">It fixes the way<br>people <em>actually talk.</em></h2>
-      <p class="demo__lede">
+      <p class="label"><span class="num">[ 03 ]</span> THE PART PEOPLE NOTICE</p>
+      <h2 class="h2">IT FIXES HOW PEOPLE<br><span class="accent">ACTUALLY TALK</span>.</h2>
+      <p class="lede">
         Nobody speaks in clean prose. You change your mind halfway through a
         sentence. With cleanup on, Utter sorts that out instead of typing the mess.
       </p>
     </div>
 
     <div class="swap" data-reveal>
-      <div class="swap__side swap__side--raw">
-        <p class="swap__tag">You said</p>
+      <div class="swap__side">
+        <p class="swap__tag">INPUT · WHAT YOU SAID</p>
         <p class="swap__text">“book an appointment for nine a.m. <span class="strike">oh no sorry</span> book an appointment for ten p.m.”</p>
       </div>
-      <div class="swap__arrow" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
-      </div>
-      <div class="swap__side swap__side--clean">
-        <p class="swap__tag">Utter typed</p>
+      <div class="swap__side swap__side--out">
+        <p class="swap__tag">OUTPUT · WHAT UTTER TYPED</p>
         <p class="swap__text swap__text--clean">“Book an appointment for 10 p.m.”</p>
       </div>
     </div>
 
     <p class="demo__foot">
-      Also handled: filler words, run-on grammar, and tone that matches the app
-      you're writing in. The model you point it at is your choice — local or cloud.
+      Also handled: filler words, run-on grammar, and tone matched to the app
+      you're writing in. The model is your choice — local or cloud.
     </p>
   </section>
 
-  <!-- ══════════════════════ 04 · DOWNLOAD ══════════════════════ -->
-  <section class="get" id="download">
+  <!-- ═════════════════════ 04 · DOWNLOAD (inverted) ═════════════════════ -->
+  <section class="get invert" id="download">
     <div class="get__head">
-      <p class="label"><span class="num">04</span> Get Utter</p>
-      <h2 class="h2">An open-source gift<br>to <em>everyone who talks.</em></h2>
+      <p class="label"><span class="num">[ 04 ]</span> GET UTTER</p>
+      <h2 class="h2">AN OPEN&#8209;SOURCE GIFT TO<br>EVERYONE WHO <span class="accent">TALKS</span>.</h2>
     </div>
 
     <div class="get__panel">
       <div class="get__primary">
         <a class="btn btn--primary btn--xl" id="download-btn-2" href="https://github.com/NeelShah1505/Utter/releases/latest" data-magnetic>
-          <span class="btn__label">Download for macOS</span>
-          <span class="btn__shine" aria-hidden="true"></span>
+          <span class="btn__label">DOWNLOAD FOR MACOS</span>
         </a>
-        <p class="download-meta" id="download-meta-2">Apple Silicon · macOS 13+</p>
+        <p class="download-meta" id="download-meta-2">APPLE SILICON · MACOS 13+</p>
         <p class="get__hint">
           Free forever. No account. After installing, download a speech model in
           Settings (≈142 MB) — that's the one-time setup.
@@ -255,12 +243,12 @@
       </div>
 
       <div class="get__platforms">
-        <p class="get__platforms-title">Platform status — honestly</p>
+        <p class="get__platforms-title">PLATFORM STATUS — HONESTLY</p>
         <ul class="plat" id="other-platforms-list">
-          <li><span class="plat__name">macOS · Apple Silicon</span><span class="plat__state plat__state--yes">Available</span></li>
-          <li><span class="plat__name">macOS · Intel</span><span class="plat__state">Not built yet</span></li>
-          <li><span class="plat__name">Windows</span><span class="plat__state">Not built yet</span></li>
-          <li><span class="plat__name">Linux</span><span class="plat__state">Not built yet</span></li>
+          <li><span class="plat__name">macOS · Apple Silicon</span><span class="plat__state plat__state--yes">AVAILABLE</span></li>
+          <li><span class="plat__name">macOS · Intel</span><span class="plat__state">NOT BUILT YET</span></li>
+          <li><span class="plat__name">Windows</span><span class="plat__state">NOT BUILT YET</span></li>
+          <li><span class="plat__name">Linux</span><span class="plat__state">NOT BUILT YET</span></li>
         </ul>
         <p class="get__smallprint">
           We only publish a download that actually runs. The engine is
@@ -271,8 +259,8 @@
     </div>
 
     <p class="get__gatekeeper">
-      Heads up: builds aren't notarized by Apple yet, so the first launch needs
-      <strong>right-click → Open</strong>. Prefer to compile it yourself?
+      Builds aren't notarized by Apple yet, so first launch needs
+      <strong>right&#8209;click → Open</strong>. Prefer to compile it yourself?
       <a href="https://github.com/NeelShah1505/Utter#build-from-source" rel="noopener">Build from source</a>.
     </p>
   </section>
@@ -281,12 +269,12 @@
 
 <footer class="site-footer">
   <div class="site-footer__row">
-    <p class="site-footer__brand">Utter</p>
+    <p class="site-footer__brand">UTTER</p>
     <nav class="site-footer__links" aria-label="Project links">
-      <a href="https://github.com/NeelShah1505/Utter" rel="noopener">GitHub</a>
-      <a href="https://github.com/NeelShah1505/Utter/releases" rel="noopener">Releases</a>
-      <a href="https://github.com/NeelShah1505/Utter/blob/main/LICENSE" rel="noopener">MIT License</a>
-      <a href="https://github.com/NeelShah1505/Utter/issues" rel="noopener">Report an issue</a>
+      <a href="https://github.com/NeelShah1505/Utter" rel="noopener">GITHUB</a>
+      <a href="https://github.com/NeelShah1505/Utter/releases" rel="noopener">RELEASES</a>
+      <a href="https://github.com/NeelShah1505/Utter/blob/main/LICENSE" rel="noopener">MIT</a>
+      <a href="https://github.com/NeelShah1505/Utter/issues" rel="noopener">ISSUES</a>
     </nav>
   </div>
   <p class="site-footer__note">
