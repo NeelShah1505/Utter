@@ -113,7 +113,7 @@ body:not(.state-idle) .bubble {
 .b-bar {
   width: 2px;
   height: 4px;
-  background: #818cf8;
+  background: var(--recording);
   border-radius: 999px;
   animation: bBarPulse 0.9s ease-in-out infinite alternate;
 }
