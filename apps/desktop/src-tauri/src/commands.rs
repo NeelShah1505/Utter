@@ -49,13 +49,7 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
         None => {
             // Dictionary words become the engine's recognition bias (whisper
             // initial_prompt), so proper nouns/code terms are heard correctly.
-            let prompt_hint = settings
-                .dictionary
-                .iter()
-                .map(|d| d.word.clone())
-                .filter(|w| !w.is_empty())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let prompt_hint = dictionary_hint(&settings.dictionary);
             let config = EngineConfig {
                 model_path: settings.model_path.clone(),
                 prompt_hint,
@@ -145,11 +139,24 @@ pub async fn start_dictation_impl(app: &AppHandle, state: &SharedState) -> Resul
 
     let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(64);
     let engine_for_capture = engine.clone();
+    let level_app = app.clone();
     let feeder = std::thread::Builder::new()
         .name("utter-audio-feed".into())
         .spawn(move || {
             let mut pending = Vec::<f32>::new();
+            let level_every = std::time::Duration::from_millis(60);
+            let mut last_level = std::time::Instant::now() - level_every;
             while let Ok(chunk) = rx.recv() {
+                // Live loudness for the waveform, about 16 times a second. Done
+                // here rather than in the audio callback so the real-time thread
+                // never touches the event loop. One float; no samples leave.
+                if last_level.elapsed() >= level_every {
+                    last_level = std::time::Instant::now();
+                    let _ = level_app.emit(
+                        "audio_level",
+                        serde_json::json!({ "level": crate::logic::audio_level(&chunk) }),
+                    );
+                }
                 pending.extend_from_slice(&chunk);
                 if pending.len() >= 8192 {
                     let _ = engine_for_capture.feed_audio(session_id, &pending);
@@ -368,17 +375,7 @@ pub async fn stop_dictation_impl(app: &AppHandle, state: &SharedState) -> Result
             .unwrap_or(raw.clone())
     };
 
-    let rules: Vec<(String, String)> = dictionary
-        .iter()
-        .filter_map(|item| {
-            let repl = item.replacement.clone()?;
-            if repl.is_empty() || item.word.is_empty() {
-                None
-            } else {
-                Some((item.word.clone(), repl))
-            }
-        })
-        .collect();
+    let rules = dictionary_rules(&dictionary);
     final_text = crate::logic::apply_dictionary(&final_text, &rules);
     final_text = crate::logic::sanitize_insertion(&final_text);
 
@@ -601,6 +598,134 @@ pub fn list_models() -> Vec<ModelInfo> {
             size_bytes: e.metadata().map(|m| m.len()).unwrap_or(0),
         })
         .collect()
+}
+
+/// Dictionary entries that carry a replacement, as (word, replacement) pairs.
+fn dictionary_rules(dictionary: &[settings::DictionaryItem]) -> Vec<(String, String)> {
+    dictionary
+        .iter()
+        .filter_map(|item| {
+            let repl = item.replacement.clone()?;
+            if repl.is_empty() || item.word.is_empty() {
+                None
+            } else {
+                Some((item.word.clone(), repl))
+            }
+        })
+        .collect()
+}
+
+/// Dictionary words as the recognition bias handed to Whisper.
+fn dictionary_hint(dictionary: &[settings::DictionaryItem]) -> String {
+    dictionary
+        .iter()
+        .map(|d| d.word.clone())
+        .filter(|w| !w.is_empty())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+// ---------------------------------------------------------------------------
+// Transcribe a recording from disk
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+pub struct FileTranscriptResult {
+    pub text: String,
+    /// The history entry that was saved, if saving succeeded.
+    pub entry: Option<crate::history::HistoryEntry>,
+    pub audio_seconds: f32,
+    pub elapsed_ms: u64,
+}
+
+/// Show the native open panel and return the chosen recording's path.
+/// `None` when the user cancels.
+#[tauri::command]
+pub async fn pick_audio_file() -> Option<String> {
+    rfd::AsyncFileDialog::new()
+        .set_title("Choose a recording to transcribe")
+        .add_filter(
+            "Audio",
+            &[
+                "wav", "mp3", "m4a", "aac", "flac", "ogg", "oga", "aif", "aiff", "caf", "mp4",
+                "mov",
+            ],
+        )
+        .pick_file()
+        .await
+        .map(|f| f.path().to_string_lossy().into_owned())
+}
+
+/// Transcribe an audio file on this machine with the installed Whisper model.
+/// Emits `file_transcribe_progress` ({ pct }) while it works, applies the
+/// dictionary replacements, and saves the result to history.
+#[tauri::command]
+pub async fn transcribe_file(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    path: String,
+) -> Result<FileTranscriptResult> {
+    let (model_path, dictionary) = {
+        let locked = crate::state::unpoison(state.lock());
+        (
+            locked.settings.model_path.clone(),
+            locked.settings.dictionary.clone(),
+        )
+    };
+    let prompt_hint = dictionary_hint(&dictionary);
+    let started = std::time::Instant::now();
+    let _ = app.emit("file_transcribe_progress", serde_json::json!({ "pct": 0 }));
+
+    let progress_app = app.clone();
+    let file = std::path::PathBuf::from(&path);
+    let transcript = tokio::task::spawn_blocking(move || {
+        let mut last = -1;
+        crate::audio_file::transcribe_path(
+            &file,
+            &model_path,
+            &prompt_hint,
+            Some(Box::new(move |pct: i32| {
+                let pct = pct.clamp(0, 100);
+                if pct != last {
+                    last = pct;
+                    let _ = progress_app.emit(
+                        "file_transcribe_progress",
+                        serde_json::json!({ "pct": pct }),
+                    );
+                }
+            })),
+        )
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("The transcription task stopped unexpectedly: {e}")))?
+    .map_err(AppError::Internal)?;
+
+    let text =
+        crate::logic::apply_dictionary(transcript.text.trim(), &dictionary_rules(&dictionary));
+    if text.trim().is_empty() {
+        return Err(AppError::Internal(
+            "No speech was found in that recording.".into(),
+        ));
+    }
+
+    let entry = crate::history::add_entry(&text).ok();
+    let _ = app.emit(
+        "file_transcribe_progress",
+        serde_json::json!({ "pct": 100 }),
+    );
+    log::info!(
+        "transcribe_file: {:.1}s of audio in {} ms, {} chars",
+        transcript.audio_seconds,
+        started.elapsed().as_millis(),
+        text.chars().count()
+    );
+
+    Ok(FileTranscriptResult {
+        text,
+        entry,
+        audio_seconds: transcript.audio_seconds,
+        elapsed_ms: started.elapsed().as_millis() as u64,
+    })
 }
 
 /// Ask the configured cleanup provider which models it can serve, so the UI can

@@ -16,6 +16,7 @@
 // These are forward declarations that will be used once each phase is implemented.
 #![allow(dead_code)]
 
+mod audio_file;
 mod cleanup;
 mod commands;
 mod engine;
@@ -110,6 +111,8 @@ fn main() {
             commands::list_models,
             commands::list_model_catalog,
             commands::download_model,
+            commands::pick_audio_file,
+            commands::transcribe_file,
             commands::test_cleanup,
             commands::list_cleanup_models,
             commands::get_logs,

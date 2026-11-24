@@ -7,3 +7,7 @@ lighthouse-report.html
 lh.json
 target/
 .replay/qa-bugs/
+
+# Never commit local secrets
+*.env
+.utter_llm_test.env

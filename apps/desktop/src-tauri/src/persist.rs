@@ -46,13 +46,13 @@ fn restrict_mode(path: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
 
+    /// A directory no other test shares. A counter (not just the clock) keeps
+    /// parallel tests apart: two can start in the same microsecond.
     fn unique_dir() -> std::path::PathBuf {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let dir =
-            std::env::temp_dir().join(format!("utter-persist-test-{}-{nanos}", std::process::id()));
+            std::env::temp_dir().join(format!("utter-persist-test-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }

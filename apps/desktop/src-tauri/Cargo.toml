@@ -40,6 +40,11 @@ dirs = "6"
 # Metal GPU acceleration is added for macOS via a target section at the bottom.
 whisper-rs = "0.14"
 
+# Audio file decoding for "transcribe a recording" (pure Rust; no ffmpeg).
+symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "alac", "aiff", "caf"] }
+# Native open panel for choosing a recording.
+rfd = "0.15"
+
 # Audio capture
 cpal = "0.15"
 # cpal's CoreAudio Stream is !Send, so we wrap it in SendWrapper to store in Tauri state

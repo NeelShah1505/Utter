@@ -192,9 +192,255 @@ pub fn classify_app(bundle_id: &str, name: &str) -> AppKind {
     }
 }
 
+/// Loudness of a chunk of microphone samples as 0..1, for the live waveform.
+///
+/// RMS in dBFS, mapped so room tone (-60 dB) reads as 0 and firm speech
+/// (-12 dB) reads as 1. Only this one number leaves the audio thread: the UI
+/// never sees the samples themselves.
+pub fn audio_level(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let mean_sq = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
+    let rms = mean_sq.sqrt();
+    if !rms.is_finite() || rms <= 0.0 {
+        return 0.0;
+    }
+    let db = 20.0 * rms.log10();
+    ((db + 60.0) / 48.0).clamp(0.0, 1.0)
+}
+
+/// True when mono audio contains something speech-like: a sustained run of
+/// frames clearly above the noise floor.
+///
+/// Whisper does not answer silence with silence. Given an empty recording it
+/// invents words ("you", "Thank you."), and given room tone or key clicks it
+/// describes them ("(machine whirring)", "(clapping)"). In a dictation app
+/// those would be typed into the user's document, so audio with no speech in
+/// it must never reach the model.
+///
+/// The test is deliberately conservative — it should never reject real speech:
+/// - frames are 20 ms; a frame counts when it is above an adaptive threshold;
+/// - the threshold sits 9 dB over the noise floor (10th-percentile frame), but
+///   never below -52 dBFS, and the floor is capped at -45 dBFS so continuous
+///   loud speech cannot raise the bar against itself;
+/// - speech needs 100 ms of consecutive frames, which a key click (a few
+///   milliseconds) cannot produce;
+/// - speech is never steady: its loud and quiet frames differ by well over
+///   10 dB. A signal whose 90th- and 10th-percentile frames are within 6 dB
+///   of each other is a fan, a hum or hiss, however loud it is.
+pub fn has_speech(samples: &[f32], sample_rate: u32) -> bool {
+    const FRAME_MS: usize = 20;
+    const MIN_RUN_FRAMES: usize = 5;
+    const ABS_FLOOR_DB: f32 = -52.0;
+    const ABOVE_NOISE_DB: f32 = 9.0;
+    const NOISE_CAP_DB: f32 = -45.0;
+    const MIN_SPREAD_DB: f32 = 6.0;
+
+    let frame = (sample_rate as usize * FRAME_MS / 1000).max(1);
+    let levels: Vec<f32> = samples
+        .chunks_exact(frame)
+        .map(|c| {
+            let mean_sq = c.iter().map(|s| s * s).sum::<f32>() / c.len() as f32;
+            if mean_sq.is_finite() && mean_sq > 0.0 {
+                10.0 * mean_sq.log10()
+            } else {
+                -120.0
+            }
+        })
+        .collect();
+    if levels.len() < MIN_RUN_FRAMES {
+        return false;
+    }
+
+    let mut sorted = levels.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let p10 = sorted[sorted.len() / 10];
+    let p90 = sorted[(sorted.len() * 9 / 10).min(sorted.len() - 1)];
+    if p90 - p10 < MIN_SPREAD_DB {
+        return false; // stationary: noise, not speech
+    }
+    let threshold = (p10.min(NOISE_CAP_DB) + ABOVE_NOISE_DB).max(ABS_FLOOR_DB);
+
+    let mut run = 0;
+    for level in levels {
+        if level > threshold {
+            run += 1;
+            if run >= MIN_RUN_FRAMES {
+                return true;
+            }
+        } else {
+            run = 0;
+        }
+    }
+    false
+}
+
+/// Remove sound descriptions that a speech model sometimes emits in place of
+/// words — "[BLANK_AUDIO]", "(clapping)", "*sighs*", "♪" — and tidy the spacing.
+/// Nobody dictates those; they must never be typed.
+pub fn strip_sound_annotations(text: &str) -> String {
+    const MARKS: [char; 9] = ['[', ']', '(', ')', '*', '♪', '♫', '♬', '♩'];
+    let tidy = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    let mut out = String::with_capacity(text.len());
+    let mut depth_square = 0usize;
+    let mut depth_round = 0usize;
+    let mut in_star = false;
+    let mut stray = false;
+    for c in text.chars() {
+        match c {
+            '[' => depth_square += 1,
+            ']' if depth_square > 0 => depth_square -= 1,
+            '(' => depth_round += 1,
+            ')' if depth_round > 0 => depth_round -= 1,
+            ']' | ')' => stray = true,
+            '*' => in_star = !in_star,
+            '♪' | '♫' | '♬' | '♩' => {}
+            _ if depth_square == 0 && depth_round == 0 && !in_star => out.push(c),
+            _ => {}
+        }
+    }
+
+    // Marks that do not pair up are stray characters, not annotations. Drop the
+    // marks but keep the words, rather than swallow the rest of the sentence.
+    if stray || depth_square > 0 || depth_round > 0 || in_star {
+        let kept: String = text.chars().filter(|c| !MARKS.contains(c)).collect();
+        return tidy(&kept);
+    }
+    tidy(&out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audio_level_maps_silence_to_zero_and_speech_toward_one() {
+        assert_eq!(audio_level(&[]), 0.0);
+        assert_eq!(audio_level(&[0.0; 512]), 0.0);
+
+        let tone = |amp: f32| -> Vec<f32> {
+            (0..1600)
+                .map(|i| amp * (2.0 * std::f32::consts::PI * 220.0 * i as f32 / 16_000.0).sin())
+                .collect()
+        };
+        let quiet = audio_level(&tone(0.004));
+        let normal = audio_level(&tone(0.05));
+        let loud = audio_level(&tone(0.6));
+        assert!(quiet > 0.0 && quiet < 0.25, "quiet = {quiet}");
+        assert!(normal > quiet && normal < 1.0, "normal = {normal}");
+        assert_eq!(loud, 1.0);
+
+        // Never NaN or out of range, whatever the input.
+        let weird = audio_level(&[f32::NAN, 1.0, -1.0]);
+        assert!((0.0..=1.0).contains(&weird));
+    }
+
+    /// Deterministic noise in -1..1 so the tests need no rand crate.
+    fn noise(n: usize, amp: f32, seed: u32) -> Vec<f32> {
+        let mut x = seed.max(1);
+        (0..n)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                amp * ((x as f32 / u32::MAX as f32) * 2.0 - 1.0)
+            })
+            .collect()
+    }
+
+    /// Something speech-shaped: bursts of tone (syllables) with gaps between.
+    fn syllables(amp: f32) -> Vec<f32> {
+        let rate = 16_000usize;
+        let mut out = noise(rate * 2, 0.0008, 3); // quiet room
+        for syl in 0..5 {
+            let start = rate / 4 + syl * rate / 4;
+            for i in 0..(rate * 150 / 1000) {
+                let t = i as f32 / rate as f32;
+                out[start + i] += amp * (2.0 * std::f32::consts::PI * 180.0 * t).sin();
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn has_speech_rejects_silence_room_tone_hum_and_clicks() {
+        let rate = 16_000u32;
+        let n = rate as usize * 3;
+
+        assert!(!has_speech(&[], rate));
+        assert!(!has_speech(&vec![0.0; n], rate), "digital silence");
+        assert!(!has_speech(&noise(n, 0.0026, 7), rate), "room tone");
+
+        let hum: Vec<f32> = (0..n)
+            .map(|i| 0.02 * (2.0 * std::f32::consts::PI * 60.0 * i as f32 / rate as f32).sin())
+            .collect();
+        assert!(!has_speech(&hum, rate), "steady mains hum");
+        // A loud desk fan: plenty of energy, none of it speech.
+        assert!(!has_speech(&noise(n, 0.035, 5), rate), "loud steady fan");
+
+        // Key clicks: 7 ms bursts, far apart. Loud, but never sustained.
+        let mut clicks = noise(n, 0.001, 11);
+        for k in 0..8 {
+            let start = 2_000 + k * 5_600;
+            for (i, s) in noise(112, 0.2, 13 + k as u32).into_iter().enumerate() {
+                clicks[start + i] += s;
+            }
+        }
+        assert!(!has_speech(&clicks, rate), "key clicks");
+    }
+
+    #[test]
+    fn has_speech_accepts_normal_quiet_and_noisy_speech() {
+        let rate = 16_000u32;
+        assert!(has_speech(&syllables(0.1), rate), "normal speech level");
+        assert!(has_speech(&syllables(0.012), rate), "quiet speech");
+
+        // Speech over a loud steady fan.
+        let mut noisy = syllables(0.15);
+        for (s, n) in noisy.iter_mut().zip(noise(32_000, 0.02, 21)) {
+            *s += n;
+        }
+        assert!(has_speech(&noisy, rate), "speech over fan noise");
+
+        // Continuous loud talking with no real pauses must not raise the bar
+        // against itself.
+        let continuous: Vec<f32> = (0..32_000)
+            .map(|i| {
+                let t = i as f32 / 16_000.0;
+                let syllable = 0.55 + 0.45 * (2.0 * std::f32::consts::PI * 4.0 * t).sin();
+                0.2 * syllable * (2.0 * std::f32::consts::PI * 200.0 * t).sin()
+            })
+            .collect();
+        assert!(has_speech(&continuous, rate), "continuous speech");
+    }
+
+    #[test]
+    fn strips_sound_annotations_but_keeps_words() {
+        assert_eq!(strip_sound_annotations("[BLANK_AUDIO]"), "");
+        assert_eq!(strip_sound_annotations("(machine whirring)"), "");
+        assert_eq!(strip_sound_annotations(" (clapping) "), "");
+        assert_eq!(strip_sound_annotations("♪ ♪"), "");
+        assert_eq!(
+            strip_sound_annotations("Hello there. [MUSIC] Book it for 10 p.m. *sighs*"),
+            "Hello there. Book it for 10 p.m."
+        );
+        // Plain text is untouched apart from spacing.
+        assert_eq!(
+            strip_sound_annotations("  Send  the report.  "),
+            "Send the report."
+        );
+        // Unpaired marks are stray characters: keep the words.
+        assert_eq!(
+            strip_sound_annotations("call f(x and return"),
+            "call fx and return"
+        );
+        assert_eq!(
+            strip_sound_annotations("5 * 3 is fifteen"),
+            "5 3 is fifteen"
+        );
+    }
 
     #[test]
     fn plan_edit_noop_and_append_and_revision() {
