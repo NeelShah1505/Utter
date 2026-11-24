@@ -26,9 +26,7 @@ pub fn list_input_devices() -> Result<Vec<String>> {
         .input_devices()
         .map_err(|e| AppError::Internal(format!("list audio devices: {e}")))?;
 
-    let names = devices
-        .filter_map(|d| d.name().ok())
-        .collect::<Vec<_>>();
+    let names = devices.filter_map(|d| d.name().ok()).collect::<Vec<_>>();
 
     Ok(names)
 }
@@ -38,17 +36,13 @@ pub fn find_device(name: &str) -> Result<Device> {
     let host = cpal::default_host();
 
     if name.is_empty() {
-        return host
-            .default_input_device()
-            .ok_or_else(|| AppError::MicBusy);
+        return host.default_input_device().ok_or(AppError::MicBusy);
     }
 
     host.input_devices()
         .map_err(|e| AppError::Internal(format!("enumerate devices: {e}")))?
         .find(|d| d.name().ok().as_deref() == Some(name))
-        .ok_or_else(|| {
-            AppError::Internal(format!("audio device not found: '{name}'"))
-        })
+        .ok_or_else(|| AppError::Internal(format!("audio device not found: '{name}'")))
 }
 
 /// Negotiated stream configuration — always 16 kHz mono f32.
@@ -93,8 +87,7 @@ impl CaptureHandle {
     /// Calls `on_chunk` with each ~100ms chunk of f32 PCM at 16 kHz.
     ///
     /// TODO (Phase 2): Wire `on_chunk` to the ASR engine's feed_audio().
-    pub fn start<F>(device: &Device, config: SupportedStreamConfig, mut on_chunk: F)
-        -> Result<Self>
+    pub fn start<F>(device: &Device, config: SupportedStreamConfig, mut on_chunk: F) -> Result<Self>
     where
         F: FnMut(&[f32]) + Send + 'static,
     {
@@ -118,10 +111,8 @@ impl CaptureHandle {
                 device.build_input_stream(
                     &stream_config,
                     move |data: &[i16], _: &_| {
-                        let f32_buf: Vec<f32> = data
-                            .iter()
-                            .map(|&s| s as f32 / i16::MAX as f32)
-                            .collect();
+                        let f32_buf: Vec<f32> =
+                            data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
                         on_chunk(&f32_buf);
                     },
                     err_fn,
@@ -140,12 +131,15 @@ impl CaptureHandle {
             .play()
             .map_err(|e| AppError::Internal(format!("start audio stream: {e}")))?;
 
-        log::info!("mic: capture started ({} Hz, {} ch, {:?})",
+        log::info!(
+            "mic: capture started ({} Hz, {} ch, {:?})",
             stream_config.sample_rate.0,
             stream_config.channels,
             sample_format,
         );
 
-        Ok(Self { _stream: SendWrapper::new(stream) })
+        Ok(Self {
+            _stream: SendWrapper::new(stream),
+        })
     }
 }

@@ -113,7 +113,7 @@ body:not(.state-idle) .bubble {
 .b-bar {
   width: 2px;
   height: 4px;
-  background: #818cf8;
+  background: var(--recording);
   border-radius: 999px;
   animation: bBarPulse 0.9s ease-in-out infinite alternate;
 }
@@ -265,4 +265,17 @@ body.state-error        .status-label { color: var(--error); }
 
 .bubble__error button:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Respect the system "Reduce motion" setting: keep state visible, drop the
+   spinning/pulsing. Transitions collapse to near-instant rather than off so
+   focus and hover still read. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

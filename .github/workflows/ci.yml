@@ -17,11 +17,36 @@ jobs:
       - run: node --test site/assets/detect.test.js site/assets/releases.test.js
 
   desktop:
-    name: Rust tests (macOS arm64)
+    name: Rust lint + tests (macOS arm64)
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned: `clippy -D warnings` is deterministic only against a fixed
+      # toolchain. A floating `stable` adds new lints every six weeks and would
+      # break CI on unrelated PRs. Bump this deliberately.
+      - uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: clippy, rustfmt
+      - name: Format check
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --check
+      - name: Clippy (warnings are errors)
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
       - name: Test
         working-directory: apps/desktop/src-tauri
         run: cargo test --bin utter
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # Prebuilt binary — avoids a ~5 min from-source `cargo install` each run.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Audit
+        working-directory: apps/desktop/src-tauri
+        run: cargo audit

@@ -27,22 +27,22 @@ pub fn register(app: &AppHandle, state: SharedState, hotkey_str: &str) -> anyhow
 
     app.global_shortcut().on_shortcut(shortcut, {
         let state = state.clone();
-        let app   = app.clone();
+        let app = app.clone();
         move |_app, shortcut, event| {
             if event.state() != ShortcutState::Pressed {
                 return;
             }
             log::debug!("hotkey fired: {shortcut}");
-            
+
             let state_clone = state.clone();
             let app_clone = app.clone();
-            
+
             let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
                 toggle_dictation(app_clone, state_clone);
             }));
-            
+
             if let Err(e) = res {
-                log::error!("PANIC IN HOTKEY HANDLER: {:?}", e);
+                log::error!("PANIC IN HOTKEY HANDLER: {e:?}");
             }
         }
     })?;
@@ -101,6 +101,5 @@ pub fn toggle_dictation(app: AppHandle, state: SharedState) {
         Status::Transcribing => {
             log::debug!("hotkey: ignoring — transcription already in-flight");
         }
-
     }
 }

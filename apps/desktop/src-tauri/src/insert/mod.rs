@@ -43,10 +43,13 @@ pub fn request_permission() -> bool {
         .spawn();
 
     #[link(name = "ApplicationServices", kind = "framework")]
-    #[link(name = "CoreFoundation", kind = "framework")]
     extern "C" {
         fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> bool;
         static kAXTrustedCheckOptionPrompt: *const std::ffi::c_void;
+    }
+
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" {
         static kCFBooleanTrue: *const std::ffi::c_void;
         fn CFDictionaryCreate(
             allocator: *const std::ffi::c_void,
@@ -120,9 +123,8 @@ pub fn insert_text(text: &str) -> Result<()> {
     }
     guard_typing()?;
 
-    let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
-        AppError::Internal(format!("Could not start keyboard input: {e}"))
-    })?;
+    let mut enigo = Enigo::new(&EnigoSettings::default())
+        .map_err(|e| AppError::Internal(format!("Could not start keyboard input: {e}")))?;
 
     enigo.text(&text).map_err(|_| AppError::InsertFailed)?;
     log::debug!("insert_text: typed {} chars", text.chars().count());
@@ -138,16 +140,19 @@ pub fn insert_delta(old: &str, new: &str) -> Result<()> {
     }
     guard_typing()?;
 
-    let mut enigo = Enigo::new(&EnigoSettings::default()).map_err(|e| {
-        AppError::Internal(format!("Could not start keyboard input: {e}"))
-    })?;
+    let mut enigo = Enigo::new(&EnigoSettings::default())
+        .map_err(|e| AppError::Internal(format!("Could not start keyboard input: {e}")))?;
 
     for _ in 0..plan.backspaces {
-        enigo.key(Key::Backspace, Direction::Click).map_err(|_| AppError::InsertFailed)?;
+        enigo
+            .key(Key::Backspace, Direction::Click)
+            .map_err(|_| AppError::InsertFailed)?;
     }
 
     if !plan.suffix.is_empty() {
-        enigo.text(&plan.suffix).map_err(|_| AppError::InsertFailed)?;
+        enigo
+            .text(&plan.suffix)
+            .map_err(|_| AppError::InsertFailed)?;
     }
 
     log::debug!(
@@ -157,4 +162,3 @@ pub fn insert_delta(old: &str, new: &str) -> Result<()> {
     );
     Ok(())
 }
-

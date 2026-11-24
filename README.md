@@ -1,12 +1,16 @@
 # Utter
 
-Type with your voice on a Mac. Speech stays on the machine unless you turn on optional AI cleanup.
+Type with your voice on a Mac. Speech is transcribed on your machine; nothing leaves it unless you turn on optional AI cleanup.
 
 Utter is a menu-bar dictation app for **macOS Apple Silicon**. Press a hotkey, speak English, press it again, and the text is typed into the focused app. MIT license. No account. No telemetry.
 
+**Two on-device speech engines:**
+- **Whisper (default)** — whisper.cpp with a downloadable model (`base.en` ≈142 MB recommended). Higher accuracy on numbers, names, and code terms, and your Dictionary biases recognition. Runs fully offline.
+- **Apple on-device** — zero download, English (US). Used automatically as a fallback until you download a Whisper model, or selectable in Settings.
+
 | Platform | Status |
 |----------|--------|
-| macOS Apple Silicon (macOS 13+) | Works. Apple on-device speech, English (United States). |
+| macOS Apple Silicon (macOS 13+) | Works. Whisper (download) or Apple on-device, English (United States). |
 | macOS Intel | Not shipped. |
 | Windows | Not shipped. |
 | Linux | Not shipped. |
@@ -16,8 +20,8 @@ The build is ad-hoc signed. The first time you open it, right-click the app and 
 ## What you need
 
 1. A Mac with Apple silicon, macOS 13 or later.
-2. English (United States) dictation language data downloaded. If it is missing, Utter stops instead of sending audio to Apple.
-3. Three permissions, the first time you dictate: Microphone, Speech Recognition, and Accessibility. Accessibility is what lets Utter type into other apps. Without it, the text is kept in History and is not typed.
+2. A speech model. Open Studio → Settings → Transcription engine and download a Whisper model (`base.en` is recommended). Until you do, Utter falls back to Apple on-device speech, which needs the English (United States) dictation language installed in System Settings.
+3. Permissions, the first time you dictate: Microphone and Accessibility (and Speech Recognition if you use the Apple engine). Accessibility is what lets Utter type into other apps. Without it, the text is kept in History and is not typed.
 
 Default hotkey: `Cmd+Shift+D`.
 

@@ -10,15 +10,25 @@ use serde::Serialize;
 use std::time::Duration;
 
 pub struct OllamaBackend {
-    url:          String,
-    model:        String,
+    url: String,
+    model: String,
     bearer_token: Option<String>,
-    prompt:       Option<String>,
+    prompt: Option<String>,
 }
 
 impl OllamaBackend {
-    pub fn new(url: String, model: String, bearer_token: Option<String>, prompt: Option<String>) -> Self {
-        Self { url, model, bearer_token, prompt }
+    pub fn new(
+        url: String,
+        model: String,
+        bearer_token: Option<String>,
+        prompt: Option<String>,
+    ) -> Self {
+        Self {
+            url,
+            model,
+            bearer_token,
+            prompt,
+        }
     }
 
     fn client() -> Result<Client, CleanupError> {
@@ -32,14 +42,14 @@ impl OllamaBackend {
 
 #[derive(Serialize)]
 struct ChatRequest<'a> {
-    model:    &'a str,
+    model: &'a str,
     messages: Vec<Message<'a>>,
-    stream:   bool,
+    stream: bool,
 }
 
 #[derive(Serialize)]
 struct Message<'a> {
-    role:    &'a str,
+    role: &'a str,
     content: &'a str,
 }
 
@@ -60,10 +70,16 @@ impl CleanupBackend for OllamaBackend {
         let system = policy::guarded_system(self.prompt.as_deref().unwrap_or(""));
         let user = policy::user_message(raw);
         let body = ChatRequest {
-            model:    &self.model,
+            model: &self.model,
             messages: vec![
-                Message { role: "system", content: &system },
-                Message { role: "user",   content: &user },
+                Message {
+                    role: "system",
+                    content: &system,
+                },
+                Message {
+                    role: "user",
+                    content: &user,
+                },
             ],
             stream: false,
         };
@@ -75,20 +91,25 @@ impl CleanupBackend for OllamaBackend {
         }
 
         let shown = policy::public_url(&self.url);
-        let resp = req.send().await.map_err(|e| {
-            CleanupError::Unreachable(format!("{shown}: {e}"))
-        })?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| CleanupError::Unreachable(format!("{shown}: {e}")))?;
 
         match resp.status().as_u16() {
-            200        => {}
+            200 => {}
             301 | 302 | 303 | 307 | 308 => {
                 return Err(CleanupError::Request(
                     "The cleanup server tried to redirect. Utter refused.".into(),
                 ));
             }
-            401 | 403  => return Err(CleanupError::Auth),
-            429        => return Err(CleanupError::RateLimit),
-            other      => return Err(CleanupError::Request(format!("The cleanup server returned HTTP {other}."))),
+            401 | 403 => return Err(CleanupError::Auth),
+            429 => return Err(CleanupError::RateLimit),
+            other => {
+                return Err(CleanupError::Request(format!(
+                    "The cleanup server returned HTTP {other}."
+                )))
+            }
         }
 
         let bytes = read_limited(resp).await?;
